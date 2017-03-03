@@ -112,6 +112,12 @@ type
     signatures*: TStrTable
     recursiveDep*: string
 
+template nimdbg*: untyped = c.module.fileIdx == gProjectMainIdx
+template cnimdbg*: untyped = p.module.module.fileIdx == gProjectMainIdx
+template pnimdbg*: untyped = p.lex.fileIdx == gProjectMainIdx
+template lnimdbg*: untyped = L.fileIdx == gProjectMainIdx
+template tnimdbg*: untyped = cl.c.module.fileIdx == gProjectMainIdx
+
 proc makeInstPair*(s: PSym, inst: PInstantiation): TInstantiationPair =
   result.genericSym = s
   result.inst = inst
