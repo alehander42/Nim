@@ -198,7 +198,7 @@ macro `.()`*(obj: JsObject, field: static[cstring],
     importString = "#." & mangledNames[$field] & "(@)"
   result = quote do:
     proc helper(o: JsObject): JsObject
-      {. importcpp: `importString`, gensym .}
+      {. importcpp: `importString`, discardable, gensym.}
     helper(`obj`)
   for idx in 0 ..< args.len:
     let paramName = newIdentNode(!("param" & $idx))
