@@ -83,6 +83,9 @@ type
 var jsarguments* {.importc: "arguments", nodecl}: JsObject
   ## JavaScript's arguments pseudo-variable
 
+var jsarguments* {.importc: "arguments", nodecl}: JsObject
+  ## JavaScript's arguments pseudo-variable
+
 # New
 proc newJsObject*: JsObject {. importcpp: "{@}" .}
   ## Creates a new empty JsObject
@@ -113,6 +116,7 @@ proc toJs*[T](val: T): JsObject {. importcpp: "(#)" .}
 
 template toJs*(s: string): JsObject = cstring(s).toJs
 
+<<<<<<< HEAD
 macro jsFromAst*(n: untyped): untyped =
   result = n
   if n.kind == nnkStmtList:
@@ -134,6 +138,10 @@ proc `/=` *(x, y: JsObject): JsObject {. importcpp: "(# /= #)", discardable .}
 proc `%=` *(x, y: JsObject): JsObject {. importcpp: "(# %= #)", discardable .}
 proc `++` *(x: JsObject): JsObject    {. importcpp: "(++#)" .}
 proc `--` *(x: JsObject): JsObject    {. importcpp: "(--#)" .}
+# proc `==` *(x, y: JsObject): JsObject {. importcpp: "(# == #)" .}
+# proc `===`*(x, y: JsObject): JsObject {. importcpp: "(# === #)" .}
+# proc `!=` *(x, y: JsObject): JsObject {. importcpp: "(# != #)" .}
+# proc `!==`*(x, y: JsObject): JsObject {. importcpp: "(# !== #)" .}
 proc `>`  *(x, y: JsObject): JsObject {. importcpp: "(# > #)" .}
 proc `<`  *(x, y: JsObject): JsObject {. importcpp: "(# < #)" .}
 proc `>=` *(x, y: JsObject): JsObject {. importcpp: "(# >= #)" .}
@@ -222,7 +230,7 @@ macro `.=`*(obj: JsObject, field, value: untyped): untyped =
       helper(`obj`, `value`)
 
 macro `.()`*(obj: JsObject,
-             field: untyped,
+             field: static[cstring],
              args: varargs[JsObject, jsFromAst]): JsObject =
   ## Experimental "method call" operator for type JsObject.
   ## Takes the name of a method of the JavaScript object (`field`) and calls
@@ -257,7 +265,7 @@ macro `.()`*(obj: JsObject,
     result[1].add args[idx].copyNimTree
 
 macro `.`*[K: string | cstring, V](obj: JsAssoc[K, V],
-                                   field: untyped): V =
+                                   field: static[cstring]): V =
   ## Experimental dot accessor (get) for type JsAssoc.
   ## Returns the value of a property of name `field` from a JsObject `x`.
   var importString: string
@@ -273,7 +281,7 @@ macro `.`*[K: string | cstring, V](obj: JsAssoc[K, V],
     helper(`obj`)
 
 macro `.=`*[K: string | cstring, V](obj: JsAssoc[K, V],
-                                    field: untyped,
+                                    field: static[cstring],
                                     value: V): untyped =
   ## Experimental dot accessor (set) for type JsAssoc.
   ## Sets the value of a property of name `field` in a JsObject `x` to `value`.
@@ -290,7 +298,7 @@ macro `.=`*[K: string | cstring, V](obj: JsAssoc[K, V],
     helper(`obj`, `value`)
 
 macro `.()`*[K: string | cstring, V: proc](obj: JsAssoc[K, V],
-                                           field: untyped,
+                                           field: static[cstring],
                                            args: varargs[untyped]): auto =
   ## Experimental "method call" operator for type JsAssoc.
   ## Takes the name of a method of the JavaScript object (`field`) and calls

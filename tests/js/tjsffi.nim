@@ -22,7 +22,7 @@ true
 Event { name: 'click: test' }
 Event { name: 'reloaded: test' }
 Event { name: 'updates: test' }
-'''
+Event { name: 'reloaded: test' }'''
 """
 
 import macros, jsffi, jsconsole
@@ -316,4 +316,3 @@ block:
   # `subscribe` is not overloaded in the current scope
   jslib.subscribe("updates"):
     console.log jsarguments[0]
-
