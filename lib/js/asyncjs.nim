@@ -11,10 +11,17 @@ type
 
   PromiseJs* {.importcpp: "Promise".} = ref object
 
+  SpecialJsObject* = ref object
+
 proc generateJsasync(arg: NimNode): NimNode
+
+proc generateJsobject(args: varargs[NimNode]): NimNode
 
 macro jsasync*(arg: untyped): untyped =
   generateJsasync(arg)
+
+macro jsobject*(args: varargs[untyped]): untyped =
+  generateJsobject(args)
 
 proc jsnew*(v: js): js {.importcpp: "(new #)".}
 
@@ -66,6 +73,7 @@ proc generateJsasync(arg: NimNode): NimNode =
     ret = newIdentNode(!"void")
   else:
     ret = arg[3][0]
+  var resolve = newIdentNode(!"resolve")
   var code = arg[^1]
   var replaced = replaceReturn(code)
   var newRet = nnkBracketExpr.newTree(newIdentNode(!"FutureJs"), ret)
@@ -80,13 +88,30 @@ proc generateJsasync(arg: NimNode): NimNode =
   result = arg
   result[3][0] = newRet
   result[^1] = quote:
-    proc insideFunction(resolve: `resolveType`): FutureJs[`ret`] =
+    proc insideFunction(`resolve`: `resolveType`): FutureJs[`ret`] =
       `code`
     var promise = jspromise(insideFunction)
     return promise
   var inside = result[^1][0][^1][0][0]
   if not replaced:
-    var afterCode = nnkCall.newTree(result[^1][0][3][1][0])
+    var afterCode = nnkCall.newTree(resolve) #result[^1][0][3][1][0])
     result[^1][0][^1].add(afterCode)
   # replaceResolve(inside, result[^1][0][3][1][0])
+  echo repr(result)
+
+proc generateJsobject(args: varargs[NimNode]): NimNode =
+  var properties = @args[0]
+
+  result = nnkTupleTy.newTree()
+  result.add(nnkIdentDefs.newTree(
+    newIdentNode(!"jsobject"),
+    newIdentNode(!"SpecialJsObject"),
+    newEmptyNode()))
+
+  for property in properties:
+    assert property.kind == nnkExprEqExpr
+    result.add(nnkIdentDefs.newTree(
+      property[0],
+      property[1],
+      newEmptyNode()))
 

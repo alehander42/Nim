@@ -1021,7 +1021,13 @@ proc genFieldAccess(p: PProc, n: PNode, r: var TCompRes) =
   gen(p, n.sons[0], r)
   let otyp = skipTypes(n.sons[0].typ, abstractVarRange)
   if otyp.kind == tyTuple:
-    r.res = ("$1.Field$2" | "$1[$2]") %
+    var special = false
+    if otyp[0].kind == tyRef and $otyp[0].sym.name.s == "SpecialJsObject":
+      r.res = ("$1.$2" | "$1[$2]") %
+        [r.res, ($n.sons[1]).rope]
+      special = true
+    if not special:
+      r.res = ("$1.Field$2" | "$1[$2]") %
         [r.res, getFieldPosition(n.sons[1]).rope]
   else:
     if n.sons[1].kind != nkSym: internalError(n.sons[1].info, "genFieldAccess")
