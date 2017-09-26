@@ -37,10 +37,25 @@ proc replaceReturn(node: var NimNode): bool =
       var child = son[0]
       node[z] = nnkCall.newTree(resolve, child)
       result = true
+    elif son.kind == nnkAsgn and son[0].kind == nnkIdent and $son[0] == "result":
+      var resolve = newIdentNode(!"resolve")
+      var child = son[1]
+      node[z] = nnkCall.newTree(resolve, child)
+      result = true
     else:
       var replaced = replaceReturn(son)
       if replaced:
         result = true
+    inc z
+
+proc replaceResolve(node: var NimNode, sym: NimNode) =
+  var z = 0
+  for s in node:
+    var son = node[z]
+    if son.kind == nnkCall and son[0].kind == nnkIdent and $son[0] == "resolve":
+      son[0] = sym
+    else:
+      replaceResolve(son, sym)
     inc z
 
 proc generateJsasync(arg: NimNode): NimNode =
@@ -52,11 +67,7 @@ proc generateJsasync(arg: NimNode): NimNode =
   else:
     ret = arg[3][0]
   var code = arg[^1]
-  var resolve = newIdentNode(!"resolve")
   var replaced = replaceReturn(code)
-  if not replaced:
-    var afterCode = nnkCall.newTree(resolve)
-    code.add(afterCode)
   var newRet = nnkBracketExpr.newTree(newIdentNode(!"FutureJs"), ret)
   var resolveType: NimNode 
   if $ret != "void":
@@ -69,8 +80,13 @@ proc generateJsasync(arg: NimNode): NimNode =
   result = arg
   result[3][0] = newRet
   result[^1] = quote:
-    proc insideFunction(`resolve`: `resolveType`): FutureJs[`ret`] =
+    proc insideFunction(resolve: `resolveType`): FutureJs[`ret`] =
       `code`
     var promise = jspromise(insideFunction)
     return promise
+  var inside = result[^1][0][^1][0][0]
+  if not replaced:
+    var afterCode = nnkCall.newTree(result[^1][0][3][1][0])
+    result[^1][0][^1].add(afterCode)
+  # replaceResolve(inside, result[^1][0][3][1][0])
 
