@@ -2135,6 +2135,13 @@ proc optionaLine(p: Rope): Rope =
   else:
     return p & tnl
 
+proc genAsync(prc: PSym): Rope =
+  var returnType = prc.ast.sons[3][0]
+  if returnType.kind == nkBracketExpr and returnType.sons[0].kind == nkSym and ($returnType.sons[0]) == "FutureJs":
+    return ~"async "
+  elif returnType.kind == nkCall and returnType.sons[^2].kind == nkSym and ($returnType.sons[^2]) == "FutureJs":
+    return ~"async "    
+
 proc genProc(oldProc: PProc, prc: PSym): Rope =
   var
     resultSym: PSym
@@ -2161,8 +2168,13 @@ proc genProc(oldProc: PProc, prc: PSym): Rope =
       returnStmt = "return $#;$n" % [a.res]
 
   p.nested: genStmt(p, prc.getBody)
-  let def = "function $#($#) {$n$#$#$#$#$#" %
-            [name, header,
+  
+  var asyncMarker = genAsync(prc)
+
+  let def = "$#function $#($#) {$n$#$#$#$#$#" %
+            [ asyncMarker,
+              name,
+              header,
               optionaLine(p.globals),
               optionaLine(p.locals),
               optionaLine(resultAsgn),
