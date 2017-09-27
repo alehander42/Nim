@@ -1447,6 +1447,10 @@ elif defined(nodejs):
   proc quit*(errorcode: int = QuitSuccess) {.magic: "Exit", 
     importc: "process.exit", noreturn.}
 
+elif defined(nodejs):
+  proc quit*(errorcode: int = QuitSuccess) {.magic: "Exit", 
+    importc: "process.exit", noreturn.}
+
 else:
   proc quit*(errorcode: int = QuitSuccess) {.
     magic: "Exit", importc: "exit", header: "<stdlib.h>", noreturn.}
