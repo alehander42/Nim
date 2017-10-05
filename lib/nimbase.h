@@ -509,3 +509,36 @@ extern Libc::Env *genodeEnv;
 /* Compile with -d:checkAbi and a sufficiently C11:ish compiler to enable */
 #define NIM_CHECK_SIZE(typ, sz) \
   _Static_assert(sizeof(typ) == sz, "Nim & C disagree on type size")
+
+
+#ifndef CALL_GRAPH
+#define CALL_GRAPH
+NU calls[65000];
+size_t callLen;
+
+typedef struct CallNode CallNode;
+
+//just 18 bytes for each call
+//children point to some more memory
+typedef struct CallNode {
+  NU16 function;
+  NU callID;
+  size_t childrenLen;
+  CallNode** children;
+} CallNode;
+
+typedef struct CallGraph {
+  NCSTRING program;
+  CallNode* root;
+  CallNode* frames[2000];
+  size_t framesLen;
+} CallGraph;
+
+CallGraph* globalGraph;
+
+int callGraph(int function);
+void exitGraph();
+void displayGraph();
+NCSTRING functionNames[65000];
+
+#endif
