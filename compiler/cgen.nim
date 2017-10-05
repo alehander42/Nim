@@ -689,10 +689,19 @@ proc initFrame(p: BProc, procname, filename: Rope): Rope =
 proc deinitFrame(p: BProc): Rope =
   result = rfmt(p.module, "\t#popFrame();$n")
 
+template traced(s: typed): untyped =
+  s != "\"chckRange\"" and s != "\"addInt\"" and 
+    s != "\"popFrame\"" and s != "\"subInt\"" and 
+    s != "\"nimFrame\"" and s != "\"usrToCell\"" and
+    s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
+    s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
+    s != "\"cellToUsr\"" and s != "\"gcMark\"" and
+    s != "\"contains\""
+
 proc startCallGraph(p: BProc, procname: Rope): Rope =
   var s = $procname
   # fuck me "" names 
-  if s != "\"chckRange\"" and s != "\"addInt\"":
+  if traced(s):
     var function = toFunction(s)
     # echo s, s != "chckRange", function
     result = rfmt(p.module, "\tint callID = callGraph($1);$n", ~($function))
@@ -700,7 +709,7 @@ proc startCallGraph(p: BProc, procname: Rope): Rope =
     result = rfmt(p.module, "")
 
 proc stopCallGraph(p: BProc, s: string): Rope =
-  if s != "\"chckRange\"" and s != "\"addInt\"":
+  if traced(s):
     result = rfmt(p.module, "\texitGraph();$n")
   else:
     result = rfmt(p.module, "")
@@ -792,7 +801,7 @@ proc genProcAux(m: BModule, prc: PSym) =
     generatedProc = rfmt(nil, "$N$1 {$N", header)
     var procname = makeCString(prc.name.s)
     add(generatedProc, initGCFrame(p))
-    echo startCallGraph(p, procname)
+    # echo startCallGraph(p, procname)
     add(generatedProc, startCallGraph(p, procname))
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
@@ -1003,7 +1012,7 @@ proc genMainProc(m: BModule) =
       "}$N$N"
 
     MainProcs =
-      "\tNimMain();$N"
+      "\tNimMain();displayGraph();$N"
 
     MainProcsWithResult =
       MainProcs & "\treturn nim_program_result;$N"

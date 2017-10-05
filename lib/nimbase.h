@@ -518,18 +518,29 @@ typedef struct CallNode CallNode;
 
 //just 18 bytes for each call
 //children point to some more memory
+// typedef struct CallNode {
+//   NU16 function;
+//   NU callID;
+//   size_t childrenLen;
+//   CallNode** children;
+// } CallNode;
+
+// 12 bytes
 typedef struct CallNode {
-  NU16 function;
+  NI16 function;
   NU callID;
-  size_t childrenLen;
-  CallNode** children;
+  NI16 parentFunction;
+  NU parentCallID;
 } CallNode;
 
 typedef struct CallGraph {
   NCSTRING program;
-  CallNode* root;
-  CallNode* frames[2000];
+  CallNode root;
+  CallNode frames[2000];
   size_t framesLen;
+  CallNode* nodes;
+  size_t nodesLen;
+  size_t nodesCap;
 } CallGraph;
 
 CallGraph* globalGraph;
@@ -537,6 +548,7 @@ CallGraph* globalGraph;
 int callGraph(int function);
 void exitGraph();
 void displayGraph();
+void logGraph();
 NCSTRING functionNames[65000];
 
 #endif
