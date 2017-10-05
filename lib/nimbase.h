@@ -526,24 +526,29 @@ typedef struct CallNode CallNode;
 // } CallNode;
 
 // 12 bytes
-typedef struct CallNode {
-  NI16 function;
-  NU callID;
-  NI16 parentFunction;
-  NU parentCallID;
-} CallNode;
+// typedef struct CallNode {
+//   NI16 function;
+//   NU callID;
+//   NI16 parentFunction;
+//   NU parentCallID;
+// } CallNode;
 
-typedef struct CallGraph {
-  NCSTRING program;
-  CallNode root;
-  CallNode frames[2000];
-  size_t framesLen;
-  CallNode* nodes;
-  size_t nodesLen;
-  size_t nodesCap;
-} CallGraph;
+// typedef struct CallGraph {
+//   NCSTRING program;
+//   CallNode root;
+//   CallNode frames[2000];
+//   size_t framesLen;
+//   CallNode* nodes;
+//   size_t nodesLen;
+//   size_t nodesCap;
+// } CallGraph;
 
-CallGraph* globalGraph;
+// CallGraph* globalGraph;
+
+NCSTRING nodes[1000000];
+size_t nodesLen;
+size_t framesLen;
+NU16 lines[2000][65000];
 
 int callGraph(int function);
 void exitGraph();

@@ -220,6 +220,9 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
     p.lastLineInfo.fileIndex = info.fileIndex
     result = true
 
+proc genLineProfile(line: Rope, function: int): Rope =
+  result = rfmt(nil, "lineProfile($1, $2);$n", line, function.rope)
+
 proc genLineDir(p: BProc, t: PNode) =
   var tt = t
   #while tt.kind in {nkStmtListExpr}+nkCallKinds:
@@ -240,8 +243,11 @@ proc genLineDir(p: BProc, t: PNode) =
       {optLineTrace, optStackTrace}) and
       (p.prc == nil or sfPure notin p.prc.flags) and tt.info.fileIndex >= 0:
     if freshLineInfo(p, tt.info):
+      var lineRope = line.rope
+      if p.prc != nil:
+        linefmt(p, cpsStmts, "$1", genLineProfile(lineRope, toFunction(p.prc.name.s)))
       linefmt(p, cpsStmts, "nimln_($1, $2);$n",
-              line.rope, tt.info.quotedFilename)
+              lineRope, tt.info.quotedFilename)
 
 proc postStmtActions(p: BProc) {.inline.} =
   add(p.s(cpsStmts), p.module.injectStmt)
@@ -1012,7 +1018,7 @@ proc genMainProc(m: BModule) =
       "}$N$N"
 
     MainProcs =
-      "\tNimMain();displayGraph();$N"
+      "\tNimMain();$N"
 
     MainProcsWithResult =
       MainProcs & "\treturn nim_program_result;$N"
