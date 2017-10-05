@@ -275,6 +275,15 @@ proc genGenericAsgn(p: BProc, dest, src: TLoc, flags: TAssignmentFlags) =
     linefmt(p, cpsStmts, "#genericAssign((void*)$1, (void*)$2, $3);$n",
             addrLoc(dest), addrLoc(src), genTypeInfo(p.module, dest.t, dest.lode.info))
 
+proc getIntTemp(p: BProc, result: var TLoc) =
+  inc(p.labels)
+  result.r = "T" & rope(p.labels) & "_"
+  linefmt(p, cpsLocals, "NI $1;$n", result.r)
+  result.k = locTemp
+  result.s = OnStack
+  result.t = getSysType(tyInt)
+  result.flags = {}
+
 proc genAssignment(p: BProc, dest, src: TLoc, flags: TAssignmentFlags) =
   # This function replaces all other methods for generating
   # the assignment operation in C.

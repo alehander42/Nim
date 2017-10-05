@@ -21,6 +21,21 @@ import strutils except `%` # collides with ropes.`%`
 from modulegraphs import ModuleGraph
 import dynlib
 
+var functions*: Table[string, int] = initTable[string, int]()
+var functionNames*: Table[int, string] = initTable[int, string]()
+
+proc toFunction*(name: string): int =
+  if functions.hasKey(name):
+    return functions[name]
+  else:
+    var function = len(functions)
+    functions[name] = function
+    functionNames[function] = name
+    return function
+
+proc toName*(function: int): string =
+  return functionNames[function]
+
 when not declared(dynlib.libCandidates):
   proc libCandidates(s: string, dest: var seq[string]) =
     ## given a library name pattern `s` write possible library names to `dest`.
@@ -219,7 +234,7 @@ proc genLineDir(p: BProc, t: PNode) =
   if ({optStackTrace, optEndb} * p.options == {optStackTrace, optEndb}) and
       (p.prc == nil or sfPure notin p.prc.flags):
     if freshLineInfo(p, tt.info):
-      linefmt(p, cpsStmts, "#endb($1, $2);$N",
+      linefmt(p, cpsStmts, "#endb($1, $2);$n",
               line.rope, makeCString(toFilename(tt.info)))
   elif ({optLineTrace, optStackTrace} * p.options ==
       {optLineTrace, optStackTrace}) and
@@ -405,8 +420,7 @@ proc assignLocalVar(p: BProc, n: PNode) =
   #assert(s.loc.k == locNone) # not yet assigned
   # this need not be fulfilled for inline procs; they are regenerated
   # for each module that uses them!
-  let nl = if optLineDir in gOptions: "" else: tnl
-  let decl = localVarDecl(p, n) & ";" & nl
+  let decl = localVarDecl(p, s) & ";" & tnl
   line(p, cpsLocals, decl)
   localDebugInfo(p, n.sym)
 
@@ -662,6 +676,35 @@ proc generateHeaders(m: BModule) =
   add(m.s[cfsHeaders], "#undef powerpc" & tnl)
   add(m.s[cfsHeaders], "#undef unix" & tnl)
 
+proc initFrame(p: BProc, procname, filename: Rope): Rope =
+  discard cgsym(p.module, "nimFrame")
+  if p.maxFrameLen > 0:
+    discard cgsym(p.module, "VarSlot")
+    result = rfmt(nil, "\tnimfrs_($1, $2, $3, $4)$N",
+                  procname, filename, p.maxFrameLen.rope,
+                  p.blocks[0].frameLen.rope)
+  else:
+    result = rfmt(nil, "\tnimfr_($1, $2)$N", procname, filename)
+
+proc deinitFrame(p: BProc): Rope =
+  result = rfmt(p.module, "\t#popFrame();$n")
+
+proc startCallGraph(p: BProc, procname: Rope): Rope =
+  var s = $procname
+  # fuck me "" names 
+  if s != "\"chckRange\"" and s != "\"addInt\"":
+    var function = toFunction(s)
+    # echo s, s != "chckRange", function
+    result = rfmt(p.module, "\tint callID = callGraph($1);$n", ~($function))
+  else:
+    result = rfmt(p.module, "")
+
+proc stopCallGraph(p: BProc, s: string): Rope =
+  if s != "\"chckRange\"" and s != "\"addInt\"":
+    result = rfmt(p.module, "\texitGraph();$n")
+  else:
+    result = rfmt(p.module, "")
+
 proc closureSetup(p: BProc, prc: PSym) =
   if tfCapturesEnv notin prc.typ.flags: return
   # prc.ast[paramsPos].last contains the type we're after:
@@ -747,10 +790,12 @@ proc genProcAux(m: BModule, prc: PSym) =
                          header, p.s(cpsLocals), p.s(cpsInit), p.s(cpsStmts))
   else:
     generatedProc = rfmt(nil, "$N$1 {$N", header)
+    var procname = makeCString(prc.name.s)
     add(generatedProc, initGCFrame(p))
+    echo startCallGraph(p, procname)
+    add(generatedProc, startCallGraph(p, procname))
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
-      var procname = makeCString(prc.name.s)
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
     else:
       add(generatedProc, p.s(cpsLocals))
@@ -761,6 +806,7 @@ proc genProcAux(m: BModule, prc: PSym) =
     add(generatedProc, p.s(cpsInit))
     add(generatedProc, p.s(cpsStmts))
     if p.beforeRetNeeded: add(generatedProc, ~"\t}BeforeRet_: ;$n")
+    add(generatedProc, stopCallGraph(p, prc.name.s))
     add(generatedProc, deinitGCFrame(p))
     if optStackTrace in prc.options: add(generatedProc, deinitFrame(p))
     add(generatedProc, returnStmt)
@@ -1061,14 +1107,18 @@ proc genMainProc(m: BModule) =
     if platform.targetOS == osStandalone or gSelectedGC == gcNone: "".rope
     else: ropecg(m, "\t#initStackBottomWith((void *)&inner);$N")
   inc(m.labels)
+  var initNames = ""
+  for z, name in functionNames:
+    initNames.add("functionNames[" & $z & "] =  " & name & ";")
   appcg(m, m.s[cfsProcs], PreMainBody, [
-    m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit,
+    m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit & initNames,
      if emulatedThreadVars() and platform.targetOS != osStandalone:
        ropecg(m, "\t#initThreadVarsEmulation();$N")
      else:
        "".rope,
      initStackBottomCall])
 
+  # nimMain = "NCSTRING functionNames[65000];\n" & nimMain
   appcg(m, m.s[cfsProcs], nimMain,
         [m.g.mainModInit, initStackBottomCall, rope(m.labels)])
   if optNoMain notin gGlobalOptions:
@@ -1124,12 +1174,13 @@ proc genInitCode(m: BModule) =
   add(prc, m.postInitProc.s(cpsLocals))
   add(prc, genSectionEnd(cpsLocals))
 
+  var procname = makeCString(m.module.name.s)
+  # add(prc, startCallGraph(m.initProc, procname))
   if optStackTrace in m.initProc.options and frameDeclared notin m.flags:
     # BUT: the generated init code might depend on a current frame, so
     # declare it nevertheless:
     incl m.flags, frameDeclared
     if preventStackTrace notin m.flags:
-      var procname = makeCString(m.module.name.s)
       add(prc, initFrame(m.initProc, procname, m.module.info.quotedFilename))
     else:
       add(prc, ~"\tTFrame FR_; FR_.len = 0;$N")
@@ -1145,6 +1196,7 @@ proc genInitCode(m: BModule) =
   add(prc, m.initProc.s(cpsStmts))
   add(prc, m.postInitProc.s(cpsStmts))
   add(prc, genSectionEnd(cpsStmts))
+  # add(prc, stopCallGraph(m.initProc))
   if optStackTrace in m.initProc.options and preventStackTrace notin m.flags:
     add(prc, deinitFrame(m.initProc))
   add(prc, deinitGCFrame(m.initProc))
@@ -1345,7 +1397,6 @@ proc myProcess(b: PPassContext, n: PNode): PNode =
   if b == nil or passes.skipCodegen(n): return
   var m = BModule(b)
   m.initProc.options = initProcOptions(m)
-  softRnl = if optLineDir in gOptions: noRnl else: rnl
   genStmts(m.initProc, n)
 
 proc finishModule(m: BModule) =
