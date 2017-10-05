@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 // int callGraph(int function) {
 //   if (globalGraph == NULL) {
@@ -63,18 +64,31 @@
 //   return functionCallID;
 // }
 
-const float LOAD_FACTOR = 1.5;
+
+void emit(char* line) {
+  nodes[nodesLen] = line;
+  nodesLen += 1;
+  if (nodesLen > 3) {
+    printf("%d %c\n", strlen(nodes[nodesLen - 1]), nodes[nodesLen - 1][0]);
+  }
+  if (nodesLen == 10000000) {
+    logGraph();
+    nodesLen = 0;
+  }
+}
+
+NU16 lineProfile(NU16 line, NI16 function) {
+  NU16 functionLine = 0;
+  functionLine = lines[framesLen][line];
+  lines[framesLen][line] += 1;
+  char l[20];
+  sprintf("l %d %d", l, functionLine);
+  emit(l);
+  return functionLine;
+}
 
 int callGraph(int function) {
-  if (globalGraph == NULL) {
-    globalGraph = (CallGraph*)malloc(sizeof(CallGraph));
-    globalGraph->program = "nim";    
-    globalGraph->framesLen = 0;
-    globalGraph->nodesLen = 0;
-    globalGraph->nodesCap = 4;
-    globalGraph->nodes = (CallNode*)malloc(sizeof(CallNode) * 4);
-    callLen = 0;
-  }
+  char line[20];
   NU functionCallID = 0;
   if (callLen <= function) {
     callLen += 1;
@@ -83,55 +97,32 @@ int callGraph(int function) {
     functionCallID = calls[function] + 1;
     calls[function] = functionCallID;
   }
-  CallNode node;
-  node.function = function;
-  node.callID = functionCallID;
-  
-  // displayNode(node, 0);
-  globalGraph->framesLen += 1;
-  if (globalGraph->nodesLen == 0) {
-    globalGraph->root = node;
-    node.parentFunction = -1;
-    node.parentCallID = 0;
-  } else {
-    CallNode base = globalGraph->frames[globalGraph->framesLen - 2];
-    node.parentFunction = base.function;
-    node.parentCallID = base.callID;
-  }
-
-  globalGraph->frames[globalGraph->framesLen - 1] = node;
-  if (globalGraph->nodesLen >= globalGraph->nodesCap) {
-    globalGraph->nodesCap = (int)floor((float)(globalGraph->nodesCap) * LOAD_FACTOR);
-    globalGraph->nodes = realloc(globalGraph->nodes, globalGraph->nodesCap * sizeof(CallNode));
-  }
-  globalGraph->nodesLen += 1;
-  globalGraph->nodes[globalGraph->nodesLen - 1] = node;
-  if (globalGraph->nodesLen >= 1000000) {
-    logGraph();
-    globalGraph->nodesLen = 0;
-  }
-  return functionCallID;
+  sprintf(line, "%d %d", function, functionCallID);
+  framesLen += 1;
+  emit(line); 
 }
 
 void exitGraph() {
-  if (globalGraph->framesLen > 0) {
-    globalGraph->framesLen -= 1;
+  if (framesLen > 0) {
+    framesLen -= 1;
+    memset(lines[framesLen + 1], 0, 65000 * sizeof(NU16));
   } else {
     // exit(1);
   }
+  emit("e");
 }
 
-void displayNode(CallNode node, size_t depth) {
-  for(size_t z = 0; z < depth; z += 1) {
-    printf(" ");
-  }
-  printf("%s %d:\n", functionNames[node.function], node.callID);
-}
+// void displayNode(CallNode node, size_t depth) {
+//   for(size_t z = 0; z < depth; z += 1) {
+//     printf(" ");
+//   }
+//   printf("%s %d:\n", functionNames[node.function], node.callID);
+// }
 
-void displayGraph() {
-  for (size_t z = 0;z < globalGraph->nodesLen; z += 1) {
-    displayNode(globalGraph->nodes[z], 0);
-  }
+#define displayGraph() {\
+  for (size_t z = 0;z < nodesLen; z += 1) {\
+    printf("%s\n", nodes[z]);\
+  }\
 }
 
 void logGraph() {
@@ -161,13 +152,15 @@ int f(int x) {
   return 2;
 }
 
-// int main() {
-//   callGraph(0);
-//   for(size_t z = 0;z < 2000; z+= 1) {
-//     f(8);
-//   }
-//   exitGraph();
+void i() {
+  char line[12];
+  sprintf(line, "%d\n", 12);
+  emit(line);
+}
 
-//   // displayGraph();
+// int main() {
+//   i();
+//   i();
+//   displayGraph();
 // }
 
