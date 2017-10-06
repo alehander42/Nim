@@ -231,19 +231,23 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
 
 
 template traced(s: typed): untyped =
-  s != "\"chckRange\"" and s != "\"addInt\"" and 
-    s != "\"popFrame\"" and s != "\"subInt\"" and 
-    s != "\"nimFrame\"" and s != "\"usrToCell\"" and
+  s != "\"chckRange\"" and s != "\"addInt\"" and
+    s != "\"popFrame\"" and s != "\"subInt\"" and
+    s != "\"raiseIndexError\"" and s != "\"usrToCell\"" and
     s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
     s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
     s != "\"cellToUsr\"" and s != "\"gcMark\"" and
-    s != "\"contains\""
+    s != "\"nimFrame\"" and s != "\"getTicks\"" and
+    s != "\"getTicks2\"" and s != "\"sysFatal\"" and
+    s != "\"lineProfile\"" and s != "\"callGraph\"" and
+    s != "\"logGraph\"" and s != "\"exitGraph\"" and
+    s != "\"displayGraph\"" # i know about push, later
 
 
 proc genLineProfile(p: BProc, line: Rope, procname: string): Rope =
   if traced(procname):
     var function = toFunction(procname)
-    result = rfmt(nil, "lineID = lineProfile($1, $2);$n", line, function.rope)
+    result = rfmt(nil, "FR_.lineID = lineProfile($1, $2);$n", line, function.rope)
   else:
     result = nil
 
@@ -690,7 +694,7 @@ proc initFrame(p: BProc, procname, filename: Rope): Rope =
                   procname, filename, p.maxFrameLen.rope,
                   p.blocks[0].frameLen.rope)
   else:
-    result = rfmt(nil, "\tNU lineID; nimfr_($1, $2);$N", procname, filename)
+    result = rfmt(nil, "\tnimfr_($1, $2);$N", procname, filename)
 
 proc deinitFrame(p: BProc): Rope =
   result = rfmt(p.module, "\t#popFrame();$n")
@@ -701,7 +705,7 @@ proc startCallGraph(p: BProc, procname: Rope): Rope =
   if traced(s):
     var function = toFunction(s)
     # echo s, s != "chckRange", function
-    result = rfmt(p.module, "\tNI callID = callGraph($1);$n", ~($function))
+    result = rfmt(p.module, "\tFR_.callID = callGraph($1);$n", ~($function))
   else:
     result = rfmt(p.module, "")
 
@@ -798,11 +802,10 @@ proc genProcAux(m: BModule, prc: PSym) =
     generatedProc = rfmt(nil, "$N$1 {$N", header)
     var procname = makeCString(prc.name.s)
     add(generatedProc, initGCFrame(p))
-    # echo startCallGraph(p, procname)
-    add(generatedProc, startCallGraph(p, procname))
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
+      add(generatedProc, startCallGraph(p, procname))
     else:
       add(generatedProc, p.s(cpsLocals))
     if optProfiler in prc.options:
@@ -812,9 +815,10 @@ proc genProcAux(m: BModule, prc: PSym) =
     add(generatedProc, p.s(cpsInit))
     add(generatedProc, p.s(cpsStmts))
     if p.beforeRetNeeded: add(generatedProc, ~"\t}BeforeRet_: ;$n")
-    add(generatedProc, stopCallGraph(p, prc.name.s))
     add(generatedProc, deinitGCFrame(p))
-    if optStackTrace in prc.options: add(generatedProc, deinitFrame(p))
+    if optStackTrace in prc.options:
+      add(generatedProc, stopCallGraph(p, $procname))
+      add(generatedProc, deinitFrame(p))
     add(generatedProc, returnStmt)
     add(generatedProc, ~"}$N")
   add(m.s[cfsProcs], generatedProc)
@@ -1114,8 +1118,8 @@ proc genMainProc(m: BModule) =
     else: ropecg(m, "\t#initStackBottomWith((void *)&inner);$N")
   inc(m.labels)
   var initNames = ""
-  for z, name in functionNames:
-    initNames.add("functionNames[" & $z & "] =  " & name & ";")
+  # for z, name in functionNames:
+  #   initNames.add("functionNames[" & $z & "] =  " & name & ";")
   appcg(m, m.s[cfsProcs], PreMainBody, [
     m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit & initNames,
      if emulatedThreadVars() and platform.targetOS != osStandalone:

@@ -9,7 +9,7 @@
 
 #define displayGraph() {\
   for (size_t z = 0;z < clocksLen; z += 1) {\
-    if (clocks[z] == 0) {\
+    if (lineNodes[z] == 0) {\
       printf("%s\n", nodes[z]);\
     } else {\
       printf("l %u %.0Lf\n", lineNodes[z], (long double)clocks[z]);\
@@ -45,7 +45,7 @@ NI callGraph(NI function) {
   NU functionCallID = 0;
   if (callLen == 0) {
     for(size_t z = 0; z < 5000; z += 1) {
-      memset(lines, 0, 2000 * sizeof(NU));
+      memset(lines[z], 0, 2000 * sizeof(NU));
     }
   }
   if (callLen <= function) {

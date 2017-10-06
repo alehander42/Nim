@@ -1431,6 +1431,7 @@ when hasThreadSupport:
 else:
   {.pragma: rtlThreadVar.}
 
+
 const
   QuitSuccess* = 0
     ## is the value that should be passed to `quit <#quit>`_ to indicate
@@ -4058,6 +4059,7 @@ when defined(windows) and appType == "console" and defined(nimSetUtf8CodePage):
     importc: "SetConsoleOutputCP".}
   discard setConsoleOutputCP(65001) # 65001 - utf-8 codepage
 
+<<<<<<< 53b15e6c0203ea083dd518c76b206069e09ada78
 <<<<<<< 6237cd269dc208bc05245cf388e3db8f7e4dcdb5
 
 when defined(nimHasRunnableExamples):

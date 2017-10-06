@@ -641,6 +641,7 @@ proc compileCFile(list: CFileList, script: var Rope, cmds: var TStringSeq,
       add(cmds, compileCmd)
       let (_, name, _) = splitFile(it.cname)
       add(prettyCmds, "CC: " & name)
+      echo compileCmd
     if optGenScript in gGlobalOptions:
       add(script, compileCmd)
       add(script, tnl)
