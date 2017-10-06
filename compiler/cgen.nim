@@ -23,6 +23,7 @@ import dynlib
 
 var functions*: Table[string, int] = initTable[string, int]()
 var functionNames*: Table[int, string] = initTable[int, string]()
+var modules*: Table[string, int] = initTable[string, int]()
 
 proc toFunction*(name: string): int =
   if functions.hasKey(name):
@@ -35,6 +36,14 @@ proc toFunction*(name: string): int =
 
 proc toName*(function: int): string =
   return functionNames[function]
+
+proc toModule*(name: string): int =
+  if modules.hasKey(name):
+    return modules[name]
+  else:
+    var module = len(modules)
+    modules[name] = module
+    return module
 
 when not declared(dynlib.libCandidates):
   proc libCandidates(s: string, dest: var seq[string]) =
@@ -220,8 +229,23 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
     p.lastLineInfo.fileIndex = info.fileIndex
     result = true
 
-proc genLineProfile(line: Rope, function: int): Rope =
-  result = rfmt(nil, "lineProfile($1, $2);$n", line, function.rope)
+
+template traced(s: typed): untyped =
+  s != "\"chckRange\"" and s != "\"addInt\"" and 
+    s != "\"popFrame\"" and s != "\"subInt\"" and 
+    s != "\"nimFrame\"" and s != "\"usrToCell\"" and
+    s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
+    s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
+    s != "\"cellToUsr\"" and s != "\"gcMark\"" and
+    s != "\"contains\""
+
+
+proc genLineProfile(p: BProc, line: Rope, procname: string): Rope =
+  if traced(procname):
+    var function = toFunction(procname)
+    result = rfmt(nil, "lineID = lineProfile($1, $2);$n", line, function.rope)
+  else:
+    result = nil
 
 proc genLineDir(p: BProc, t: PNode) =
   var tt = t
@@ -244,11 +268,12 @@ proc genLineDir(p: BProc, t: PNode) =
       (p.prc == nil or sfPure notin p.prc.flags) and tt.info.fileIndex >= 0:
     if freshLineInfo(p, tt.info):
       var lineRope = line.rope
-      if p.prc != nil:
-        linefmt(p, cpsStmts, "$1", genLineProfile(lineRope, toFunction(p.prc.name.s)))
       linefmt(p, cpsStmts, "nimln_($1, $2);$n",
               lineRope, tt.info.quotedFilename)
-
+      if p.prc != nil:
+        # i am ashamed of how much time i lost debugging "
+        linefmt(p, cpsStmts, "$1", genLineProfile(p, lineRope, "\"" & p.prc.name.s & "\""))
+      
 proc postStmtActions(p: BProc) {.inline.} =
   add(p.s(cpsStmts), p.module.injectStmt)
 
@@ -661,23 +686,14 @@ proc initFrame(p: BProc, procname, filename: Rope): Rope =
   discard cgsym(p.module, "nimFrame")
   if p.maxFrameLen > 0:
     discard cgsym(p.module, "VarSlot")
-    result = rfmt(nil, "\tnimfrs_($1, $2, $3, $4)$N",
+    result = rfmt(nil, "\tnimfrs_($1, $2, $3, $4);$N",
                   procname, filename, p.maxFrameLen.rope,
                   p.blocks[0].frameLen.rope)
   else:
-    result = rfmt(nil, "\tnimfr_($1, $2)$N", procname, filename)
+    result = rfmt(nil, "\tNU lineID; nimfr_($1, $2);$N", procname, filename)
 
 proc deinitFrame(p: BProc): Rope =
   result = rfmt(p.module, "\t#popFrame();$n")
-
-template traced(s: typed): untyped =
-  s != "\"chckRange\"" and s != "\"addInt\"" and 
-    s != "\"popFrame\"" and s != "\"subInt\"" and 
-    s != "\"nimFrame\"" and s != "\"usrToCell\"" and
-    s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
-    s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
-    s != "\"cellToUsr\"" and s != "\"gcMark\"" and
-    s != "\"contains\""
 
 proc startCallGraph(p: BProc, procname: Rope): Rope =
   var s = $procname
@@ -685,7 +701,7 @@ proc startCallGraph(p: BProc, procname: Rope): Rope =
   if traced(s):
     var function = toFunction(s)
     # echo s, s != "chckRange", function
-    result = rfmt(p.module, "\tint callID = callGraph($1);$n", ~($function))
+    result = rfmt(p.module, "\tNI callID = callGraph($1);$n", ~($function))
   else:
     result = rfmt(p.module, "")
 
