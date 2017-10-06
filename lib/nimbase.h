@@ -428,27 +428,29 @@ struct TFrame {
   NCSTRING filename;
   NI16 len;
   NI16 calldepth;
+  NU16 lineID;
+  NU callID;
 };
 
 #ifdef NIM_NEW_MANGLING_RULES
   #define nimfr_(proc, file) \
     TFrame FR_; \
-    FR_.procname = proc; FR_.filename = file; FR_.line = 0; FR_.len = 0; nimFrame(&FR_);
+    FR_.procname = proc; FR_.filename = file; FR_.line = 0; FR_.len = 0; FR_.lineID = 0; FR_.callID = 0; nimFrame(&FR_);
 
   #define nimfrs_(proc, file, slots, length) \
     struct {TFrame* prev;NCSTRING procname;NI line;NCSTRING filename; NI len; VarSlot s[slots];} FR_; \
-    FR_.procname = proc; FR_.filename = file; FR_.line = 0; FR_.len = length; nimFrame((TFrame*)&FR_);
+    FR_.procname = proc; FR_.filename = file; FR_.line = 0; FR_.len = length; FR_.lineID = 0; FR_.callID = 0; nimFrame((TFrame*)&FR_);
 
   #define nimln_(n, file) \
     FR_.line = n; FR_.filename = file;
 #else
   #define nimfr(proc, file) \
     TFrame FR; \
-    FR.procname = proc; FR.filename = file; FR.line = 0; FR.len = 0; nimFrame(&FR);
+    FR.procname = proc; FR.filename = file; FR.line = 0; FR.len = 0; FR_.lineID = 0; FR_.callID = 0; nimFrame(&FR);
 
   #define nimfrs(proc, file, slots, length) \
     struct {TFrame* prev;NCSTRING procname;NI line;NCSTRING filename; NI len; VarSlot s[slots];} FR; \
-    FR.procname = proc; FR.filename = file; FR.line = 0; FR.len = length; nimFrame((TFrame*)&FR);
+    FR.procname = proc; FR.filename = file; FR.line = 0; FR.len = length; FR_.lineID = 0; FR_.callID = 0; nimFrame((TFrame*)&FR);
 
   #define nimln(n, file) \
     FR.line = n; FR.filename = file;
@@ -509,57 +511,4 @@ extern Libc::Env *genodeEnv;
 #define NIM_CHECK_SIZE(typ, sz) \
   _Static_assert(sizeof(typ) == sz, "Nim & C disagree on type size")
 
-
-#include <time.h>
-
-#ifndef CALL_GRAPH
-#define CALL_GRAPH
-
-//just 18 bytes for each call
-//children point to some more memory
-// typedef struct CallNode {
-//   NU16 function;
-//   NU callID;
-//   size_t childrenLen;
-//   CallNode** children;
-// } CallNode;
-
-// 12 bytes
-// typedef struct CallNode {
-//   NI16 function;
-//   NU callID;
-//   NI16 parentFunction;
-//   NU parentCallID;
-// } CallNode;
-
-// typedef struct CallGraph {
-//   NCSTRING program;
-//   CallNode root;
-//   CallNode frames[2000];
-//   size_t framesLen;
-//   CallNode* nodes;
-//   size_t nodesLen;
-//   size_t nodesCap;
-// } CallGraph;
-
-NU calls[65000];
-size_t callLen;
-
-typedef struct CallNode CallNode;
-
-#define MAX 1000000
-char nodes[MAX][50]; // no allocations
-clock_t clocks[MAX];
-size_t clocksLen;
-NU lineNodes[MAX];
-NU lines[5000][2000];
-
-NI callGraph(NI function);
-void exitGraph();
-void displayGraph();
-void logGraph();
-NU lineProfile(NU16 line, NI16 module);
-NCSTRING functionNames[65000];
-
-#endif
 #endif /* NIMBASE_H */
