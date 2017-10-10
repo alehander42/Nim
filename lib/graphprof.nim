@@ -77,7 +77,7 @@ var lineNodes: array[MAX, uint16]
 
 var lines: array[6000, array[7000, uint16]]
 
-
+var records: int64 = 0
 
 
 
@@ -149,11 +149,21 @@ proc displayGraph {.exportc: "displayGraph".} =
       fwrite(lineNodes[z].addr, sizeof(uint16), 1, stdout)
       fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
     
+var version: uint16 = 2
+
 proc logGraph =
+  records += int64(clocksLen)
+  var r = records
+  var v = 2
   freopen(cstring"gdb.txt", cstring"a", stdout)
   displayGraph()
-  fclose(stdout)
-  memset(lineNodes, 0, 1_000_000 * sizeof(uint))
+  if clocksLen < 1_000_000:
+    fwrite(r.addr, sizeof(int64), 1, stdout)
+    fwrite(v.addr, sizeof(uint16), 1, stdout)
+    fclose(stdout)
+  else:
+    fclose(stdout)
+    memset(lineNodes, 0, 1_000_000 * sizeof(uint))
   clocksLen = 0
 
 addQuitProc(logGraph)
