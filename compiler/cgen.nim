@@ -24,14 +24,16 @@ import dynlib
 var functions*: Table[string, int] = initTable[string, int]()
 var functionNames*: Table[int, string] = initTable[int, string]()
 var modules*: Table[string, int] = initTable[string, int]()
+var functionModules*: Table[int, string] = initTable[int, string]()
 
-proc toFunction*(name: string): int =
+proc toFunction*(name: string, module: string): int =
   if functions.hasKey(name):
     return functions[name]
   else:
     var function = len(functions)
     functions[name] = function
     functionNames[function] = name
+    functionModules[function] = module
     return function
 
 proc toName*(function: int): string =
@@ -246,7 +248,7 @@ template traced(s: typed): untyped =
 
 proc genLineProfile(p: BProc, line: Rope, procname: string): Rope =
   if traced(procname):
-    var function = toFunction(procname)
+    var function = toFunction(procname, p.module.filename)
     result = rfmt(nil, "FR_.lineID = lineProfile($1, $2);$n", line, function.rope)
   else:
     result = nil
@@ -703,7 +705,7 @@ proc startCallGraph(p: BProc, procname: Rope): Rope =
   var s = $procname
   # fuck me "" names 
   if traced(s):
-    var function = toFunction(s)
+    var function = toFunction(s, p.module.filename)
     # echo s, s != "chckRange", function
     result = rfmt(p.module, "\tFR_.callID = callGraph($1);$n", ~($function))
   else:
@@ -1118,10 +1120,12 @@ proc genMainProc(m: BModule) =
     else: ropecg(m, "\t#initStackBottomWith((void *)&inner);$N")
   inc(m.labels)
   var initNames = ""
-  # for z, name in functionNames:
-  #   initNames.add("functionNames[" & $z & "] =  " & name & ";")
+  initNames.add($(len(functionNames)) & "\n")
+  for z, name in functionNames:
+    initNames.add($z & " " & name & " " & functionModules[z] & "\n")
+  writeFile("metadata.txt", initNames)
   appcg(m, m.s[cfsProcs], PreMainBody, [
-    m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit & initNames,
+    m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit,
      if emulatedThreadVars() and platform.targetOS != osStandalone:
        ropecg(m, "\t#initThreadVarsEmulation();$N")
      else:
