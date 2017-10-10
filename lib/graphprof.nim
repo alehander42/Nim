@@ -38,20 +38,20 @@ proc getTicks(): Ticks {.exportc: "getTicks2".} =
 proc memset[T: static[int], U](s: array[T, U], value: int, size: uint) {.
   importc: "memset", header: "<string.h>".}
 
+proc memcpy(s: ptr char, i: ptr int, c: int) {.
+  importc: "memcpy", header: "<string.h>".}
+
 type
   Line {.unchecked.} = array[50, char]
 
-proc sprintf(dest: Line, format: cstring, arg: int) {.
-  importc: "sprintf", header: "<stdio.h>".}
-
-proc printf(format: cstring, a: untyped) {.
-  importc: "printf", header: "<stdio.h>".}
-
-# proc printf2(format: cstring, b: uint, c: Ticks) {.
-#   importc: "printf", header: "<stdio.h>".}
-
 type
   Stream = ref object
+
+proc fwrite[T](source: T, size: int, count: int, z: Stream) {.
+  importc: "fwrite", header: "<stdio.h>".}
+
+proc sprintf(dest: Line, format: cstring, arg: int) {.
+  importc: "sprintf", header: "<stdio.h>".}
 
 proc freopen(filename: cstring, mode: cstring, stream: Stream) {.
   importc: "freopen", header: "<stdio.h>".}
@@ -71,7 +71,7 @@ var nodes: array[MAX, Line] # no allocations
 var clocks: array[MAX, Ticks]
 var clocksLen: uint = 0
 
-var lineNodes: array[MAX, uint]
+var lineNodes: array[MAX, uint16]
 # type 
 #   elementArray{.unchecked.} = array[2000, uint16]
 
@@ -101,7 +101,7 @@ proc lineProfile(line: uint16, function: int16): uint16 {.exportc: "lineProfile"
   # nodesLen += 1;
   return functionLine
 
-proc callGraph(function: int): uint {.exportc: "callGraph".}=
+proc callGraph(function: int16): uint {.exportc: "callGraph".}=
   var functionCallID: uint = 0;
   if callLen == 0:
     for z in 0..<6_000:
@@ -113,25 +113,41 @@ proc callGraph(function: int): uint {.exportc: "callGraph".}=
   else:
     functionCallID = calls[function] + 1
     calls[function] = functionCallID
-  sprintf(nodes[clocksLen], cstring"%d", function)
+  nodes[clocksLen][0] = '0'
+  var f = function
+  memcpy(nodes[clocksLen][1].addr, f.addr, 2)
+  # sprintf(nodes[clocksLen], cstring"0%d", function)
   clocksLen += 1
   # echo clocksLen
   emit()
   return functionCallID
 
 proc exitGraph {.exportc: "exitGraph".} =
-  nodes[clocksLen][0] = 'e'
-  nodes[clocksLen][1] = '\0'
+  nodes[clocksLen][0] = '2'
   clocksLen += 1
   emit()
 
 proc displayGraph {.exportc: "displayGraph".} =
+  # <<KIND::1, LEFT::n>>
+  #   KIND is CALL/LINE/EXIT
+  #   CALL
+  #     <<KIND::1, FUNCTIONID::2>>
+  #   LINE
+  #     <<KIND::1, LINE::2, CLOCK::8>>
+  #   EXIT
+  #     <<KIND::1>
+  # can be even more optimal
   for z in 0..<clocksLen:
     if lineNodes[z] == 0:
-      printf("%s\n", nodes[z])
+      if nodes[z][0] == '0':
+        fwrite(nodes[z], 1, 3, stdout)
+      else:
+        fwrite(nodes[z], 1, 1, stdout)
     else:
-      printf("l %u ", lineNodes[z])
-      printf("%ld\n", clocks[z])
+      var c = '1'
+      fwrite(c.addr, 1, 1, stdout)
+      fwrite(lineNodes[z].addr, sizeof(uint16), 1, stdout)
+      fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
     
 proc logGraph =
   freopen(cstring"gdb.txt", cstring"a", stdout)
