@@ -232,24 +232,63 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
     result = true
 
 
-template traced(s: typed): untyped =
-  s != "\"chckRange\"" and s != "\"addInt\"" and
-    s != "\"popFrame\"" and s != "\"subInt\"" and
-    s != "\"raiseIndexError\"" and s != "\"usrToCell\"" and
-    s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
-    s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
-    s != "\"cellToUsr\"" and s != "\"gcMark\"" and
-    s != "\"nimFrame\"" and s != "\"getTicks\"" and
+template traced(s: typed, filename: string): untyped =
+  # var f = $filename
+  filename[len(filename) - 10.. ^1] != "system.nim" and  s != "\"getTicks\"" and
     s != "\"getTicks2\"" and s != "\"sysFatal\"" and
+    s != "\"contains\"" and s != "\"intGetSet\"" and
     s != "\"lineProfile\"" and s != "\"callGraph\"" and
     s != "\"logGraph\"" and s != "\"exitGraph\"" and
     s != "\"displayGraph\"" # i know about push, later
 
+  #   s != "\"popFrame\"" and s != "\"subInt\"" and
+  #   s != "\"raiseIndexError\"" and s != "\"usrToCell\"" and
+  #   s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
+  #   s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
+  #   s != "\"cellToUsr\"" and s != "\"gcMark\"" and
+  #   s != "\"nimFrame\"" and s != "\"getTicks\"" and
+  #   s != "\"getTicks2\"" and s != "\"sysFatal\"" and
+  #   s != "\"contains\"" and s != "\"intGetSet\"" and
+  #   s != "\"pageIndex\"" and s != "\"isAccessible\"" and
+  #   s != "\"interriorAllocatedPtr\"" and s != "\"add\"" and
+  #   s != "\"smallChunk\"" and s != "\"pageAddr\"" and
+  #   s != "\"roundup\"" and s != "\"rawAlloc\"" and
+  #   s != "\"getOccupiedMem\"" and s != "\"decRef\"" and
+  #   s != "\"getActiveStack\"" and s != "\"isOnStack\"" and
+  #   s != "\"unsureAsgnRef\"" and s != "\"rawDealloc\"" and 
+  #   s != "\"prepareDealloc\"" and s != "\"newObj\"" and
+  #   s != "\"selectBranch\"" and s != "\"genericAssignAux\"" and
+  #   s != "\"addZCT\"" and s != "\"rtlAddZCT\"" and
+  #   s != "\"FieldDiscriminantCheck\"" and s != "\"nextTry\"" and
+  #   s != "\"chunkUnused\"" and s != "\"growObj\"" and
+  #   s != "\"len\"" and s != "\"newObjRC1\"" and
+  #   s != "\"newSeqRC1\"" and s != "\"genericAssign\"" and
+  #   s != "\"genericReset\"" and s != "\"genericSeqAssign\"" and # 0
+  #   s != "\"==\"" and s != "\"containsOrIncl\"" and
+  #   s != "\"incl\"" and s != "\"listAdd\"" and
+  #   s != "\"listRemove\"" and s != "\"newSeq\"" and
+  #   s != "\"incRef\"" and s != "\"asgnRef\"" and
+  #   s != "\"genericResetAux\"" and s != "\"extGetCellType\"" and
+  #   s != "\"reprEnum\"" and s != "\"[]=\"" and
+  #   s != "\"intSetPut\"" and s != "\"checkErr\"" and
+  #   s != "\"updatePrevSize\"" and s != "\"excl\"" and
+  #   s != "\"getBigChunk\"" and s != "\"getSmallChunk\"" and
+  #   s != "\"splitChunk\"" and s != "\"find\"" and
+  #   s != "\"getDiscriminant\"" and s != "\"put\"" and
+  #   s != "\"get\"" and s != "\"freeBigChunk\"" and
+  #   s != "\"[]\"" and s != "\"write\"" and
+  #   s != "\"shallow\"" and s != "\"setPosition\"" and
+  #   s != "\"isActiveStack\"" and s != "\"highGauge\"" and # 1
+  #   s != "\"lineProfile\"" and s != "\"callGraph\"" and
+  #   s != "\"logGraph\"" and s != "\"exitGraph\"" and
+  #   s != "\"displayGraph\"" # i know about push, later
 
-proc genLineProfile(p: BProc, line: Rope, procname: string): Rope =
-  if traced(procname):
+
+proc genLineProfile(p: BProc, line: int, lineRope: Rope, procname: string): Rope =
+  if traced(procname, p.module.filename):
     var function = toFunction(procname, p.module.filename)
-    result = rfmt(nil, "FR_.lineID = lineProfile($1, $2);$n", line, function.rope)
+    if line notin @[2115, 2116]:
+      result = rfmt(nil, "FR_.lineID = lineProfile($1, $2);$n", lineRope, function.rope)
   else:
     result = nil
 
@@ -278,7 +317,7 @@ proc genLineDir(p: BProc, t: PNode) =
               lineRope, tt.info.quotedFilename)
       if p.prc != nil:
         # i am ashamed of how much time i lost debugging "
-        linefmt(p, cpsStmts, "$1", genLineProfile(p, lineRope, "\"" & p.prc.name.s & "\""))
+        linefmt(p, cpsStmts, "$1", genLineProfile(p, line, lineRope, "\"" & p.prc.name.s & "\""))
       
 proc postStmtActions(p: BProc) {.inline.} =
   add(p.s(cpsStmts), p.module.injectStmt)
@@ -704,15 +743,15 @@ proc deinitFrame(p: BProc): Rope =
 proc startCallGraph(p: BProc, procname: Rope): Rope =
   var s = $procname
   # fuck me "" names 
-  if traced(s):
+  if traced(s, p.module.filename):
     var function = toFunction(s, p.module.filename)
     # echo s, s != "chckRange", function
-    result = rfmt(p.module, "\tFR_.callID = callGraph($1);$n", ~($function))
+    result = rfmt(p.module, "\tFR_.functionID = $1;FR_.callID = callGraph($1);$n", ~($function))
   else:
     result = rfmt(p.module, "")
 
 proc stopCallGraph(p: BProc, s: string): Rope =
-  if traced(s):
+  if traced(s, p.module.filename):
     result = rfmt(p.module, "\texitGraph();$n")
   else:
     result = rfmt(p.module, "")

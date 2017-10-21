@@ -429,6 +429,7 @@ struct TFrame {
   NI16 len;
   NI16 calldepth;
   NU16 lineID;
+  NU16 functionID;
   NU callID;
 };
 
