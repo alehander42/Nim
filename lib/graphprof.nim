@@ -75,7 +75,7 @@ var lineNodes: array[MAX, uint16]
 # type 
 #   elementArray{.unchecked.} = array[2000, uint16]
 
-var lines: array[6000, array[7000, uint16]]
+var lines {.exportc: "lines__codetracer".}: array[6000, array[7000, uint16]]
 
 var records: int64 = 0
 
