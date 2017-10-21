@@ -496,7 +496,7 @@ proc assignLocalVar(p: BProc, n: PNode) =
   #assert(s.loc.k == locNone) # not yet assigned
   # this need not be fulfilled for inline procs; they are regenerated
   # for each module that uses them!
-  let decl = localVarDecl(p, s) & ";" & tnl
+  let decl = localVarDecl(p, n) & ";" & tnl
   line(p, cpsLocals, decl)
   localDebugInfo(p, n.sym)
 
