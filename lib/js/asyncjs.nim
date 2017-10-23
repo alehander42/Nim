@@ -96,8 +96,7 @@ proc generateJsasync(arg: NimNode): NimNode =
   if not replaced:
     var afterCode = nnkCall.newTree(resolve) #result[^1][0][3][1][0])
     result[^1][0][^1].add(afterCode)
-  # replaceResolve(inside, result[^1][0][3][1][0])
-  echo repr(result)
+  # echo repr(result)
 
 proc generateJsobject(args: varargs[NimNode]): NimNode =
   var properties = @args[0]
