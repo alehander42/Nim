@@ -13,6 +13,8 @@
 
 # I don't wanna depend on anyting
 
+import random
+
 type
   Ticks = distinct int64
 
@@ -38,7 +40,7 @@ proc getTicks(): Ticks {.exportc: "getTicks2".} =
 proc memset[T: static[int], U](s: array[T, U], value: int, size: uint) {.
   importc: "memset", header: "<string.h>".}
 
-proc memcpy(s: ptr char, i: ptr int, c: int) {.
+proc memcpy[T, U](s: T, i: U, c: int) {.
   importc: "memcpy", header: "<string.h>".}
 
 type
@@ -87,15 +89,24 @@ template emit: untyped =
   if clocksLen == 1_000_000:
     logGraph()
 
+# temporary random
+const SAMPLING: seq[int] = @[10, 3, 40, 35, 15, 23, 17, 35, 9, 41, 45, 7, 34, 7, 15, 2, 40, 4, 15, 18]
+
+var sampling = 0
+
 proc lineProfile(line: uint16, function: int16): uint16 {.exportc: "lineProfile".} =
   var functionLine = lines[function][line]
   lines[function][line] += 1
-  lineNodes[clocksLen] = line
-  clocks[clocksLen] = getTicks()
-  clocksLen += 1
-  # optimize, just save here
-  # we have to expand emit here too because we have loop with many lines
-  emit()
+  if functionLine == 0 or clocksLen.int mod SAMPLING[sampling] == 0:
+    lineNodes[clocksLen] = line
+    # clocks[clocksLen] = getTicks()
+    clocksLen += 1
+    sampling += 1
+    if sampling >= 20:
+      sampling = 0
+    # optimize, just save here
+    # we have to expand emit here too because we have loop with many lines
+    emit()
   # // sprintf(nodes[nodesLen], "l %u %.0Lf", line, (long double)begin);
   # sprintf(nodes[nodesLen], "l %u", line);
   # nodesLen += 1;
@@ -116,6 +127,7 @@ proc callGraph(function: int16): uint {.exportc: "callGraph".}=
   nodes[clocksLen][0] = '0'
   var f = function
   memcpy(nodes[clocksLen][1].addr, f.addr, 2)
+  clocks[clocksLen] = getTicks()
   # sprintf(nodes[clocksLen], cstring"0%d", function)
   clocksLen += 1
   # echo clocksLen
@@ -124,8 +136,11 @@ proc callGraph(function: int16): uint {.exportc: "callGraph".}=
 
 proc exitGraph {.exportc: "exitGraph".} =
   nodes[clocksLen][0] = '2'
+  clocks[clocksLen] = getTicks()
   clocksLen += 1
   emit()
+
+var log: array[11_000_000, char]
 
 proc displayGraph {.exportc: "displayGraph".} =
   # <<KIND::1, LEFT::n>>
@@ -137,18 +152,39 @@ proc displayGraph {.exportc: "displayGraph".} =
   #   EXIT
   #     <<KIND::1>
   # can be even more optimal
+  # <<KIND::1, LEFT::n>>
+  #   KIND is CALL/LINE/EXIT
+  #   CALL
+  #     <<KIND::1, FUNCTIONID::2, CLOCK::8>>
+  #   LINE
+  #     <<KIND::1, LINE::2>>
+  #   EXIT
+  #     <<KIND::1, CLOCK::8>
+  var logSize = 0
   for z in 0..<clocksLen:
     if lineNodes[z] == 0:
       if nodes[z][0] == '0':
-        fwrite(nodes[z], 1, 3, stdout)
+        memcpy(log[logSize].addr, nodes[z].addr, 3)
+        logSize += 3
+        # fwrite(nodes[z], 1, 3, stdout)
       else:
-        fwrite(nodes[z], 1, 1, stdout)
+        memcpy(log[logSize].addr, nodes[z].addr, 1)
+        logSize += 1
+        # fwrite(nodes[z], 1, 1, stdout)
+      memcpy(log[logSize].addr, clocks[z].addr, sizeof(Ticks))
+      logSize += sizeof(Ticks)
+      # fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
     else:
       var c = '1'
-      fwrite(c.addr, 1, 1, stdout)
-      fwrite(lineNodes[z].addr, sizeof(uint16), 1, stdout)
-      fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
-    
+      memcpy(log[logSize].addr, c.addr, 1)
+      logSize += 1
+      # fwrite(c.addr, 1, 1, stdout)
+      memcpy(log[logSize].addr, lineNodes[z].addr, sizeof(uint16))
+      logSize += sizeof(uint16)
+      # fwrite(lineNodes[z].addr, sizeof(uint16), 1, stdout)
+      # fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
+  fwrite(log, 1, logSize, stdout)
+
 var version: uint16 = 2
 
 proc logGraph =
