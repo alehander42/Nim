@@ -52,6 +52,9 @@ type
 proc fwrite[T](source: T, size: int, count: int, z: Stream) {.
   importc: "fwrite", header: "<stdio.h>".}
 
+proc printf(frt: cstring, arg0: int, arg1: int, arg2: uint16) {.
+  importc: "printf", header: "<stdio.h>".}
+
 proc sprintf(dest: Line, format: cstring, arg: int) {.
   importc: "sprintf", header: "<stdio.h>".}
 
@@ -66,6 +69,7 @@ var stdout {.importc: "stdout", header: "<unistd.h>".}: Stream
 
 var calls: array[65_000, uint]
 var callLen: uint = 0
+var codeID: int64 = 0
 var functionNames {.importc: "functionNames".}: array[65_000, cstring]
 
 const MAX = 1_000_000
@@ -97,16 +101,16 @@ var sampling = 0
 proc lineProfile(line: uint16, function: int16): uint16 {.exportc: "lineProfile".} =
   var functionLine = lines[function][line]
   lines[function][line] += 1
-  if functionLine == 0 or clocksLen.int mod SAMPLING[sampling] == 0:
-    lineNodes[clocksLen] = line
-    # clocks[clocksLen] = getTicks()
-    clocksLen += 1
-    sampling += 1
-    if sampling >= 20:
-      sampling = 0
-    # optimize, just save here
-    # we have to expand emit here too because we have loop with many lines
-    emit()
+  # if functionLine == 0 or clocksLen.int mod SAMPLING[sampling] == 0:
+  #   lineNodes[clocksLen] = line
+  #   # clocks[clocksLen] = getTicks()
+  #   clocksLen += 1
+  #   sampling += 1
+  #   if sampling >= 20:
+  #     sampling = 0
+  #   # optimize, just save here
+  #   # we have to expand emit here too because we have loop with many lines
+  #   # emit()
   # // sprintf(nodes[nodesLen], "l %u %.0Lf", line, (long double)begin);
   # sprintf(nodes[nodesLen], "l %u", line);
   # nodesLen += 1;
@@ -129,6 +133,9 @@ proc callGraph(function: int16): uint {.exportc: "callGraph".}=
   memcpy(nodes[clocksLen][1].addr, f.addr, 2)
   clocks[clocksLen] = getTicks()
   # sprintf(nodes[clocksLen], cstring"0%d", function)
+  codeID += 1
+  if codeID mod 1_000_000 == 0:
+    var y = 2 # BREAK HERE IN PRESTART
   clocksLen += 1
   # echo clocksLen
   emit()
@@ -156,8 +163,6 @@ proc displayGraph {.exportc: "displayGraph".} =
   #   KIND is CALL/LINE/EXIT
   #   CALL
   #     <<KIND::1, FUNCTIONID::2, CLOCK::8>>
-  #   LINE
-  #     <<KIND::1, LINE::2>>
   #   EXIT
   #     <<KIND::1, CLOCK::8>
   var logSize = 0
@@ -174,15 +179,15 @@ proc displayGraph {.exportc: "displayGraph".} =
       memcpy(log[logSize].addr, clocks[z].addr, sizeof(Ticks))
       logSize += sizeof(Ticks)
       # fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
-    else:
-      var c = '1'
-      memcpy(log[logSize].addr, c.addr, 1)
-      logSize += 1
-      # fwrite(c.addr, 1, 1, stdout)
-      memcpy(log[logSize].addr, lineNodes[z].addr, sizeof(uint16))
-      logSize += sizeof(uint16)
-      # fwrite(lineNodes[z].addr, sizeof(uint16), 1, stdout)
-      # fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
+    # else:
+    #   var c = '1'
+    #   memcpy(log[logSize].addr, c.addr, 1)
+    #   logSize += 1
+    #   # fwrite(c.addr, 1, 1, stdout)
+    #   memcpy(log[logSize].addr, lineNodes[z].addr, sizeof(uint16))
+    #   logSize += sizeof(uint16)
+    #   # fwrite(lineNodes[z].addr, sizeof(uint16), 1, stdout)
+    #   # fwrite(clocks[z].addr, sizeof(Ticks), 1, stdout)
   fwrite(log, 1, logSize, stdout)
 
 var version: uint16 = 2
@@ -196,6 +201,13 @@ proc logGraph =
   if clocksLen < 1_000_000:
     fwrite(r.addr, sizeof(int64), 1, stdout)
     fwrite(v.addr, sizeof(uint16), 1, stdout)
+    fclose(stdout)
+    freopen(cstring"line.csv", cstring"w", stdout)
+    for function in 0.. < (callLen.int + 1):
+      for line in 0..<7000:
+        if lines[function][line] > 0.uint:
+          echo function, "\t", line, "\t", lines[function][line]
+          # printf(cstring"%d\t%d\t%u\n", function, line, lines[function][line])
     fclose(stdout)
   else:
     fclose(stdout)
