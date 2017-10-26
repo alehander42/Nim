@@ -496,7 +496,8 @@ proc assignLocalVar(p: BProc, n: PNode) =
   #assert(s.loc.k == locNone) # not yet assigned
   # this need not be fulfilled for inline procs; they are regenerated
   # for each module that uses them!
-  let decl = localVarDecl(p, n) & ";" & tnl
+  let nl = if optLineDir in gOptions: "" else: tnl
+  let decl = localVarDecl(p, n) & ";" & nl
   line(p, cpsLocals, decl)
   localDebugInfo(p, n.sym)
 
@@ -731,11 +732,11 @@ proc initFrame(p: BProc, procname, filename: Rope): Rope =
   discard cgsym(p.module, "nimFrame")
   if p.maxFrameLen > 0:
     discard cgsym(p.module, "VarSlot")
-    result = rfmt(nil, "\tnimfrs_($1, $2, $3, $4);$N",
+    result = rfmt(nil, "\tnimfrs_($1, $2, $3, $4);$n",
                   procname, filename, p.maxFrameLen.rope,
                   p.blocks[0].frameLen.rope)
   else:
-    result = rfmt(nil, "\tnimfr_($1, $2);$N", procname, filename)
+    result = rfmt(nil, "\tnimfr_($1, $2);$n", procname, filename)
 
 proc deinitFrame(p: BProc): Rope =
   result = rfmt(p.module, "\t#popFrame();$n")
@@ -1451,6 +1452,7 @@ proc myProcess(b: PPassContext, n: PNode): PNode =
   if b == nil or passes.skipCodegen(n): return
   var m = BModule(b)
   m.initProc.options = initProcOptions(m)
+  softRnl = if optLineDir in gOptions: noRnl else: rnl
   genStmts(m.initProc, n)
 
 proc finishModule(m: BModule) =
