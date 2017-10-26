@@ -3765,8 +3765,8 @@ template assert*(cond: bool, msg = "") =
   bind instantiationInfo
   mixin failedAssertImpl
   when compileOption("assertions"):
-    {.line.}:
-      if not cond: failedAssertImpl(astToStr(cond) & ' ' & msg)
+    # {.line.}:
+    if not cond: failedAssertImpl(astToStr(cond) & ' ' & msg)
 
 template doAssert*(cond: bool, msg = "") =
   ## same as `assert` but is always turned on and not affected by the
