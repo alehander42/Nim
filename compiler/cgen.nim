@@ -22,22 +22,22 @@ from modulegraphs import ModuleGraph
 import dynlib
 
 var functions*: Table[string, int] = initTable[string, int]()
-var functionNames*: Table[int, string] = initTable[int, string]()
+var functionData*: Table[int, tuple[name: string, module: string, mangled: string]] = initTable[int, tuple[name: string, module: string, mangled: string]]()
 var modules*: Table[string, int] = initTable[string, int]()
 var functionModules*: Table[int, string] = initTable[int, string]()
 
-proc toFunction*(name: string, module: string): int =
+proc toFunction*(name: string, module: string, prc: string): int =
   if functions.hasKey(name):
     return functions[name]
   else:
     var function = len(functions)
     functions[name] = function
-    functionNames[function] = name
+    functionData[function] = (name: name, module: module, mangled: prc)
     functionModules[function] = module
     return function
 
 proc toName*(function: int): string =
-  return functionNames[function]
+  return functionData[function].name
 
 proc toModule*(name: string): int =
   if modules.hasKey(name):
@@ -232,14 +232,38 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
     result = true
 
 
+let graphFunctions = toSet(["\"lineProfile\"", "\"callGraph\"", "\"exitGraph\"", "\"logGraph\"", "\"displayGraph\"", "\"intGetSet\"", "\"contains\"", "\"getTicks\"", "\"getTicks2\"", "\"sysFatal\""])
+
+let gcFunctions = toSet([
+  "\"asgnRef\"",
+  "\"asgnRefNoCycle\"",
+  "\"nimGCunrefNoCycle\"",
+  "\"nimGCunrefRC1\"",
+  "\"unsureAsgnRef\"",
+  "\"initGC\"",
+  "\"usrToCell\"",
+  "\"cellToUsr\"",
+  "\"extGetCellType\"",
+  "\"internRefcount\"",
+  "\"addZCT\"",
+  "\"incRef\"",
+  "\"nimGCref\"",
+  "\"rtlAddCycleRoot\"",
+  "\"rtlAddZCT\"",
+  "\"rtlAddZCT\"",
+  "\"GC_addCycleRoot\""
+])
+
 template traced(s: typed, filename: string): untyped =
   # var f = $filename
-  filename[len(filename) - 10.. ^1] != "system.nim" and  s != "\"getTicks\"" and
-    s != "\"getTicks2\"" and s != "\"sysFatal\"" and
-    s != "\"contains\"" and s != "\"intGetSet\"" and
-    s != "\"lineProfile\"" and s != "\"callGraph\"" and
-    s != "\"logGraph\"" and s != "\"exitGraph\"" and
-    s != "\"displayGraph\"" # i know about push, later
+  filename[len(filename) - 10.. ^1] != "system.nim" and
+    s notin graphFunctions and s notin gcFunctions
+    
+    # s != "\"getTicks2\"" and s != "\"sysFatal\"" and
+    # s != "\"contains\"" and s != "\"intGetSet\"" and
+    # s != "\"lineProfile\"" and s != "\"callGraph\"" and
+    # s != "\"logGraph\"" and s != "\"exitGraph\"" and
+    # s != "\"displayGraph\"" # i know about push, later
 
   #   s != "\"popFrame\"" and s != "\"subInt\"" and
   #   s != "\"raiseIndexError\"" and s != "\"usrToCell\"" and
@@ -284,13 +308,7 @@ template traced(s: typed, filename: string): untyped =
   #   s != "\"displayGraph\"" # i know about push, later
 
 
-proc genLineProfile(p: BProc, line: int, lineRope: Rope, procname: string): Rope =
-  if traced(procname, p.module.filename):
-    var function = toFunction(procname, p.module.filename)
-    if line notin @[2115, 2116]:
-      result = rfmt(nil, "FR_.lineID = lineProfile($1, $2);$n", lineRope, function.rope)
-  else:
-    result = nil
+proc genLineProfile(p: BProc, line: int, lineRope: Rope, procname: string, prc: PSym): Rope
 
 proc genLineDir(p: BProc, t: PNode) =
   var tt = t
@@ -317,7 +335,7 @@ proc genLineDir(p: BProc, t: PNode) =
               lineRope, tt.info.quotedFilename)
       if p.prc != nil:
         # i am ashamed of how much time i lost debugging "
-        linefmt(p, cpsStmts, "$1", genLineProfile(p, line, lineRope, "\"" & p.prc.name.s & "\""))
+        linefmt(p, cpsStmts, "$1", genLineProfile(p, line, lineRope, "\"" & p.prc.name.s & "\"", p.prc))
       
 proc postStmtActions(p: BProc) {.inline.} =
   add(p.s(cpsStmts), p.module.injectStmt)
@@ -332,6 +350,14 @@ template compileToCpp(m: BModule): untyped =
 include "ccgtypes.nim"
 
 # ------------------------------ Manager of temporaries ------------------
+
+proc genLineProfile(p: BProc, line: int, lineRope: Rope, procname: string, prc: PSym): Rope =
+  if traced(procname, p.module.filename):
+    var function = toFunction(procname, p.module.filename, $mangleName(p.module, prc))
+    if line notin @[2115, 2116]:
+      result = rfmt(nil, "FR_.lineID = lineProfile($1, $2);$n", lineRope, function.rope)
+  else:
+    result = nil
 
 proc rdLoc(a: TLoc): Rope =
   # 'read' location (deref if indirect)
@@ -741,11 +767,11 @@ proc initFrame(p: BProc, procname, filename: Rope): Rope =
 proc deinitFrame(p: BProc): Rope =
   result = rfmt(p.module, "\t#popFrame();$n")
 
-proc startCallGraph(p: BProc, procname: Rope): Rope =
+proc startCallGraph(p: BProc, procname: Rope, prc: PSym): Rope =
   var s = $procname
-  # fuck me "" names 
+  # fuck me "" names
   if traced(s, p.module.filename):
-    var function = toFunction(s, p.module.filename)
+    var function = toFunction(s, p.module.filename, $mangleName(p.module, prc))
     # echo s, s != "chckRange", function
     result = rfmt(p.module, "\tFR_.functionID = $1;FR_.callID = callGraph($1);$n", ~($function))
   else:
@@ -847,7 +873,7 @@ proc genProcAux(m: BModule, prc: PSym) =
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
-      add(generatedProc, startCallGraph(p, procname))
+      add(generatedProc, startCallGraph(p, procname, prc))
     else:
       add(generatedProc, p.s(cpsLocals))
     if optProfiler in prc.options:
@@ -1160,9 +1186,9 @@ proc genMainProc(m: BModule) =
     else: ropecg(m, "\t#initStackBottomWith((void *)&inner);$N")
   inc(m.labels)
   var initNames = ""
-  initNames.add($(len(functionNames)) & "\n")
-  for z, name in functionNames:
-    initNames.add($z & " " & name & " " & functionModules[z] & "\n")
+  initNames.add($(len(functionData)) & "\n")
+  for z, data in functionData:
+    initNames.add($z & " " & data.name & " " & data.module & " " & data.mangled & "\n")
   writeFile("metadata.txt", initNames)
   appcg(m, m.s[cfsProcs], PreMainBody, [
     m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit,
