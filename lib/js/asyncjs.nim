@@ -78,7 +78,7 @@ proc generateJsasync(arg: NimNode): NimNode =
   var replaced = replaceReturn(code)
   var newRet = nnkBracketExpr.newTree(newIdentNode(!"FutureJs"), ret)
   var resolveType: NimNode 
-  if $ret != "void":
+  if repr(ret) != "void":
     resolveType = quote:
       (proc(res: `ret`): void)
   else:
