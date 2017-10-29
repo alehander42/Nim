@@ -258,55 +258,6 @@ template traced(s: typed, filename: string): untyped =
   # var f = $filename
   filename[len(filename) - 10.. ^1] != "system.nim" and
     s notin graphFunctions and s notin gcFunctions
-    
-    # s != "\"getTicks2\"" and s != "\"sysFatal\"" and
-    # s != "\"contains\"" and s != "\"intGetSet\"" and
-    # s != "\"lineProfile\"" and s != "\"callGraph\"" and
-    # s != "\"logGraph\"" and s != "\"exitGraph\"" and
-    # s != "\"displayGraph\"" # i know about push, later
-
-  #   s != "\"popFrame\"" and s != "\"subInt\"" and
-  #   s != "\"raiseIndexError\"" and s != "\"usrToCell\"" and
-  #   s != "\"doOperation\"" and s != "\"nimGCvisit\"" and
-  #   s != "\"stackSize\"" and s != "\"asgnRefNoCycle\"" and
-  #   s != "\"cellToUsr\"" and s != "\"gcMark\"" and
-  #   s != "\"nimFrame\"" and s != "\"getTicks\"" and
-  #   s != "\"getTicks2\"" and s != "\"sysFatal\"" and
-  #   s != "\"contains\"" and s != "\"intGetSet\"" and
-  #   s != "\"pageIndex\"" and s != "\"isAccessible\"" and
-  #   s != "\"interriorAllocatedPtr\"" and s != "\"add\"" and
-  #   s != "\"smallChunk\"" and s != "\"pageAddr\"" and
-  #   s != "\"roundup\"" and s != "\"rawAlloc\"" and
-  #   s != "\"getOccupiedMem\"" and s != "\"decRef\"" and
-  #   s != "\"getActiveStack\"" and s != "\"isOnStack\"" and
-  #   s != "\"unsureAsgnRef\"" and s != "\"rawDealloc\"" and 
-  #   s != "\"prepareDealloc\"" and s != "\"newObj\"" and
-  #   s != "\"selectBranch\"" and s != "\"genericAssignAux\"" and
-  #   s != "\"addZCT\"" and s != "\"rtlAddZCT\"" and
-  #   s != "\"FieldDiscriminantCheck\"" and s != "\"nextTry\"" and
-  #   s != "\"chunkUnused\"" and s != "\"growObj\"" and
-  #   s != "\"len\"" and s != "\"newObjRC1\"" and
-  #   s != "\"newSeqRC1\"" and s != "\"genericAssign\"" and
-  #   s != "\"genericReset\"" and s != "\"genericSeqAssign\"" and # 0
-  #   s != "\"==\"" and s != "\"containsOrIncl\"" and
-  #   s != "\"incl\"" and s != "\"listAdd\"" and
-  #   s != "\"listRemove\"" and s != "\"newSeq\"" and
-  #   s != "\"incRef\"" and s != "\"asgnRef\"" and
-  #   s != "\"genericResetAux\"" and s != "\"extGetCellType\"" and
-  #   s != "\"reprEnum\"" and s != "\"[]=\"" and
-  #   s != "\"intSetPut\"" and s != "\"checkErr\"" and
-  #   s != "\"updatePrevSize\"" and s != "\"excl\"" and
-  #   s != "\"getBigChunk\"" and s != "\"getSmallChunk\"" and
-  #   s != "\"splitChunk\"" and s != "\"find\"" and
-  #   s != "\"getDiscriminant\"" and s != "\"put\"" and
-  #   s != "\"get\"" and s != "\"freeBigChunk\"" and
-  #   s != "\"[]\"" and s != "\"write\"" and
-  #   s != "\"shallow\"" and s != "\"setPosition\"" and
-  #   s != "\"isActiveStack\"" and s != "\"highGauge\"" and # 1
-  #   s != "\"lineProfile\"" and s != "\"callGraph\"" and
-  #   s != "\"logGraph\"" and s != "\"exitGraph\"" and
-  #   s != "\"displayGraph\"" # i know about push, later
-
 
 proc genLineProfile(p: BProc, line: int, lineRope: Rope, procname: string, prc: PSym): Rope
 
@@ -333,7 +284,7 @@ proc genLineDir(p: BProc, t: PNode) =
       var lineRope = line.rope
       linefmt(p, cpsStmts, "nimln_($1, $2);$n",
               lineRope, tt.info.quotedFilename)
-      if p.prc != nil:
+      if p.prc != nil and optGraphprof in p.options:
         # i am ashamed of how much time i lost debugging "
         linefmt(p, cpsStmts, "$1", genLineProfile(p, line, lineRope, "\"" & p.prc.name.s & "\"", p.prc))
       
@@ -898,7 +849,9 @@ proc genProcAux(m: BModule, prc: PSym) =
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
-      add(generatedProc, startCallGraph(p, procname, prc))
+      # echo optGraphprof in prc.options
+      if optGraphprof in prc.options:
+        add(generatedProc, startCallGraph(p, procname, prc))
     else:
       add(generatedProc, p.s(cpsLocals))
     if optProfiler in prc.options:
@@ -910,7 +863,8 @@ proc genProcAux(m: BModule, prc: PSym) =
     if p.beforeRetNeeded: add(generatedProc, ~"\t}BeforeRet_: ;$n")
     add(generatedProc, deinitGCFrame(p))
     if optStackTrace in prc.options:
-      add(generatedProc, stopCallGraph(p, $procname))
+      if optGraphprof in prc.options:
+        add(generatedProc, stopCallGraph(p, $procname))
       add(generatedProc, deinitFrame(p))
     add(generatedProc, returnStmt)
     add(generatedProc, ~"}$N")
@@ -1210,11 +1164,12 @@ proc genMainProc(m: BModule) =
     if platform.targetOS == osStandalone or gSelectedGC == gcNone: "".rope
     else: ropecg(m, "\t#initStackBottomWith((void *)&inner);$N")
   inc(m.labels)
-  var initNames = ""
-  initNames.add($(len(functionData)) & "\n")
-  for z, data in functionData:
-    initNames.add($z & " " & data.name & " " & data.module & " " & data.mangled & "\n")
-  writeFile("metadata.txt", initNames)
+  if len(functionData) > 0:
+    var initNames = ""
+    initNames.add($(len(functionData)) & "\n")
+    for z, data in functionData:
+      initNames.add($z & " " & data.name & " " & data.module & " " & data.mangled & "\n")
+    writeFile("metadata.txt", initNames)
   appcg(m, m.s[cfsProcs], PreMainBody, [
     m.g.mainDatInit, m.g.breakpoints, m.g.otherModsInit,
      if emulatedThreadVars() and platform.targetOS != osStandalone:

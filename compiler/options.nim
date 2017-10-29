@@ -25,7 +25,7 @@ type                          # please make sure we have under 32 options
     optNone, optObjCheck, optFieldCheck, optRangeCheck, optBoundsCheck,
     optOverflowCheck, optNilCheck,
     optNaNCheck, optInfCheck,
-    optAssert, optLineDir, optWarns, optHints,
+    optAssert, optGraphprof, optLineDir, optWarns, optHints,
     optOptimizeSpeed, optOptimizeSize, optStackTrace, # stack tracing support
     optLineTrace,             # line tracing support (includes stack tracing)
     optEndb,                  # embedded debugger
