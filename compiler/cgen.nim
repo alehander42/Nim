@@ -724,7 +724,7 @@ proc startCallGraph(p: BProc, procname: Rope, prc: PSym): Rope =
   if traced(s, p.module.filename):
     var function = toFunction(s, p.module.filename, $mangleName(p.module, prc))
     # echo s, s != "chckRange", function
-    result = rfmt(p.module, "\tFR_.functionID = $1;FR_.callID = callGraph($1);$n", ~($function))
+    result = rfmt(p.module, "\tFR_.functionID = $1;FR_.codeID = callGraph($1, &FR_.callID);$n", ~($function))
   else:
     result = rfmt(p.module, "")
 
