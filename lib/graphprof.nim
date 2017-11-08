@@ -13,7 +13,7 @@
 
 # I don't wanna depend on anyting
 
-import random
+# import random
 
 type
   Ticks = distinct int64
@@ -72,6 +72,11 @@ var callLen: uint = 0
 var codeID: int64 = 0
 var functionNames {.importc: "functionNames".}: array[65_000, cstring]
 
+type
+   FRType = object
+     callID: uint
+
+var fr {.importc: "FR_".}: FRType
 const MAX = 1_000_000
 var nodes: array[MAX, Line] # no allocations
 var clocks: array[MAX, Ticks]
@@ -116,7 +121,7 @@ proc lineProfile(line: uint16, function: int16): uint16 {.exportc: "lineProfile"
   # nodesLen += 1;
   return functionLine
 
-proc callGraph(function: int16): uint {.exportc: "callGraph".}=
+proc callGraph(function: int16, callID: var uint): int64 {.exportc: "callGraph".}=
   var functionCallID: uint = 0;
   if callLen == 0:
     for z in 0..<6_000:
@@ -139,7 +144,9 @@ proc callGraph(function: int16): uint {.exportc: "callGraph".}=
   clocksLen += 1
   # echo clocksLen
   emit()
-  return functionCallID
+
+  callID = functionCallID
+  return codeID - 1
 
 proc exitGraph {.exportc: "exitGraph".} =
   nodes[clocksLen][0] = '2'
@@ -203,11 +210,14 @@ proc logGraph =
     fwrite(v.addr, sizeof(uint16), 1, stdout)
     fclose(stdout)
     freopen(cstring"line.csv", cstring"w", stdout)
+    var lineRaw = ""
     for function in 0.. < (callLen.int + 1):
       for line in 0..<7000:
         if lines[function][line] > 0.uint:
-          echo function, "\t", line, "\t", lines[function][line]
+          lineRaw.add($function & "\t" & $line & "\t" & $lines[function][line] & "\n") 
+          # echo function, "\t", line, "\t", lines[function][line]
           # printf(cstring"%d\t%d\t%u\n", function, line, lines[function][line])
+    echo lineRaw
     fclose(stdout)
   else:
     fclose(stdout)
