@@ -470,8 +470,7 @@ template fail* =
     else:
       formatter.failureOccurred(checkpoints, nil)
 
-  when not defined(ECMAScript):
-    if abortOnError: quit(programResult)
+  if abortOnError: quit(programResult)
 
   checkpoints = @[]
 
