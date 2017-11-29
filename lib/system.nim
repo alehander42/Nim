@@ -2854,6 +2854,9 @@ type
     fspCur            ## Seek relative to current position
     fspEnd            ## Seek relative to end
 
+when defined(nodejs):
+  proc readFile*(filename: string): string {.importcpp: "require(\"fs\").readFileSync(toJSStr(#))", header: "fs", tags: [ReadIOEffect], benign.}
+
 when not defined(JS): #and not defined(nimscript):
   {.push stack_trace: off, profiler:off.}
 
@@ -2934,7 +2937,6 @@ when not defined(JS): #and not defined(nimscript):
       ## Raises an IO exception in case of an error.
 
   when not defined(nimscript) and hostOS != "standalone":
-
     # text file handling:
     var
       stdin* {.importc: "stdin", header: "<stdio.h>".}: File

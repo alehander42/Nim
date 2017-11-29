@@ -43,6 +43,7 @@ type
   TJSGen = object of TPassContext
     module: PSym
     target: TTarget
+    headerFiles: seq[string]
 
   BModule = ref TJSGen
   TJSTypeKind = enum       # necessary JS "types"
@@ -2383,11 +2384,21 @@ proc genHeader(target: TTarget): Rope =
               "$$lastJSError = null;$n") %
              [rope(VersionAsString)]
 
+var headers = false
+
+proc generateHeaders(p: PProc) =
+  # if not headers:
+  #   p.module.headerFiles = @["fs"]
+  #   headers = true
+  for it in p.module.headerFiles:
+    add(p.body, rope("var $1 = require(\"$1\");" % it) & tnl)
+  
 proc genModule(p: PProc, n: PNode) =
   if optStackTrace in p.options:
     add(p.body, frameCreate(p,
         makeJSString("module " & p.module.module.name.s),
         makeJSString(toFilename(p.module.module.info))))
+  generateHeaders(p)
   genStmt(p, n)
   if optStackTrace in p.options:
     add(p.body, frameDestroy(p))
