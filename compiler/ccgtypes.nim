@@ -463,6 +463,10 @@ proc mangleRecFieldName(m: BModule; field: PSym, rectype: PType): Rope =
     result = rope(mangleField(m, field.name))
   if result == nil: internalError(field.info, "mangleRecFieldName")
 
+proc discriminatorTableDecl(m: BModule, objtype: PType, d: PSym): Rope
+proc discriminatorTableName(m: BModule, objtype: PType, d: PSym): Rope
+proc genObjectFields(m: BModule, typ, origType: PType, n: PNode, expr: Rope)
+
 proc genRecordFieldsAux(m: BModule, n: PNode,
                         accessExpr: Rope, rectype: PType,
                         check: var IntSet): Rope =
@@ -503,6 +507,13 @@ proc genRecordFieldsAux(m: BModule, n: PNode,
       else: internalError("genRecordFieldsAux(record case branch)")
     if unionBody != nil:
       addf(result, "union{$n$1} $2;$n", [unionBody, uname])
+      # echo "union", uname
+      if optCDebug in gGlobalOptions:
+        appcg(m, cfsVars, "extern $1",
+          discriminatorTableDecl(m, recType, n.sons[0].sym))
+        var tokens = ($m.getTempName()).split("_")
+        var name = rope(tokens[0] & "_" & tokens[1] & "_0[0]")
+        genObjectFields(m, recType, recType, n, name)
   of nkSym:
     let field = n.sym
     if field.typ.kind == tyVoid: return
