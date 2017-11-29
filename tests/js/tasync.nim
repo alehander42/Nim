@@ -20,7 +20,5 @@ proc y(e: int): Future[string] {.async.} =
   echo 0
   return "x"
 
-
-
 discard x(2)
 

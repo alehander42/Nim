@@ -71,6 +71,23 @@ type
   PromiseJs* {.importcpp: "Promise".} = ref object
   ## A JavaScript Promise
 
+proc generateJsasync(arg: NimNode): NimNode
+
+macro async*(arg: untyped): untyped =
+  generateJsasync(arg)
+
+proc newPromise*[T](handler: proc(resolve: proc(response: T))): Future[T] {.importcpp: "(new Promise(#))".}
+
+## can convert cb to async
+## proc a*: Future[bool] =
+##   var promise = newPromise() do (resolve: proc(response: bool)):
+##     call() do (r: cstring):
+##       resolve(len($r) > 0)
+##   return promise
+
+proc jsResolve*[T](a: T): Future[T] {.importcpp: "#".}
+
+
 proc replaceReturn(node: var NimNode) =
   var z = 0
   for s in node:
@@ -104,7 +121,3 @@ macro async*(arg: untyped): untyped =
   ## Macro which converts normal procedures into
   ## javascript-compatible async procedures
   generateJsasync(arg)
-
-proc newPromise*[T](handler: proc(resolve: proc(response: T))): Future[T] {.importcpp: "(new Promise(#))".}
-  ## A helper for wrapping callback-based functions
-  ## into promises and async procedures
