@@ -71,6 +71,14 @@ type
   PromiseJs* {.importcpp: "Promise".} = ref object
   ## A JavaScript Promise
 
+proc generateJsasync(arg: NimNode): NimNode
+
+macro async*(arg: untyped): untyped =
+  generateJsasync(arg)
+
+proc jsResolve*[T](a: T): Future[T] {.importcpp: "#".}
+
+
 proc replaceReturn(node: var NimNode) =
   var z = 0
   for s in node:
@@ -143,3 +151,4 @@ proc newPromise*[T](handler: proc(resolve: proc(response: T))): Future[T] {.impo
 proc newPromise*(handler: proc(resolve: proc())): Future[void] {.importcpp: "(new Promise(#))".}
   ## A helper for wrapping callback-based functions
   ## into promises and async procedures
+=======
