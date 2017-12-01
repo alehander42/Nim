@@ -225,23 +225,25 @@ proc getSystemConfigPath(filename: string): string =
     if not existsFile(result): result = joinPath([p, "etc", filename])
     if not existsFile(result): result = "/etc/" & filename
 
-proc loadConfigs*(cfg: string; cache: IdentCache; config: ConfigRef = nil) =
+proc loadConfigPaths*(cfg: string): (seq[string], bool) =
+  # returs a seq of all the config paths and true on deprecated nimrod
+  result = (@[], false)
   setDefaultLibpath()
 
   if optSkipConfigFile notin gGlobalOptions:
-    readConfigFile(getSystemConfigPath(cfg), cache, config)
-
+    result[0].add(getSystemConfigPath(cfg))
+  
   if optSkipUserConfigFile notin gGlobalOptions:
-    readConfigFile(getUserConfigPath(cfg), cache, config)
+    result[0].add(getUserConfigPath(cfg))
 
-  var pd = if gProjectPath.len > 0: gProjectPath else: getCurrentDir()
+  var pd = if gProjectPath.len > 0: gProjectPath else: getCurrentDir()  
   if optSkipParentConfigFiles notin gGlobalOptions:
     for dir in parentDirs(pd, fromRoot=true, inclusive=false):
-      readConfigFile(dir / cfg, cache, config)
+      result[0].add(dir / cfg)
 
   if optSkipProjConfigFile notin gGlobalOptions:
-    readConfigFile(pd / cfg, cache, config)
-
+    result[0].add(pd / cfg)
+    
     if gProjectName.len != 0:
       # new project wide config file:
       var projectConfig = changeFileExt(gProjectFull, "nimcfg")
@@ -250,8 +252,15 @@ proc loadConfigs*(cfg: string; cache: IdentCache; config: ConfigRef = nil) =
       if not fileExists(projectConfig):
         projectConfig = changeFileExt(gProjectFull, "nimrod.cfg")
         if fileExists(projectConfig):
-          rawMessage(warnDeprecated, projectConfig)
-      readConfigFile(projectConfig, cache, config)
+          result[1] = true
+      result[0].add(projectConfig)
+
+proc loadConfigs*(cfg: string; cache: IdentCache; config: ConfigRef = nil) =
+  var (paths, nimrod) = loadConfigPaths(cfg)
+  if nimrod:
+    rawMessage(warnDeprecated, paths[^1])
+  for path in paths:
+    readConfigFile(getSystemConfigPath(path), cache, config)
 
 proc loadConfigs*(cfg: string; config: ConfigRef = nil) =
   # for backwards compatibility only.
