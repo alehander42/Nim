@@ -225,25 +225,23 @@ proc getSystemConfigPath(filename: string): string =
     if not existsFile(result): result = joinPath([p, "etc", filename])
     if not existsFile(result): result = "/etc/" & filename
 
-proc loadConfigPaths*(cfg: string): (seq[string], bool) =
-  # returs a seq of all the config paths and true on deprecated nimrod
-  result = (@[], false)
+proc loadConfigs*(cfg: string; cache: IdentCache; config: ConfigRef = nil) =
   setDefaultLibpath()
 
   if optSkipConfigFile notin gGlobalOptions:
-    result[0].add(getSystemConfigPath(cfg))
-  
-  if optSkipUserConfigFile notin gGlobalOptions:
-    result[0].add(getUserConfigPath(cfg))
+    readConfigFile(getSystemConfigPath(cfg), cache, config)
 
-  var pd = if gProjectPath.len > 0: gProjectPath else: getCurrentDir()  
+  if optSkipUserConfigFile notin gGlobalOptions:
+    readConfigFile(getUserConfigPath(cfg), cache, config)
+
+  var pd = if gProjectPath.len > 0: gProjectPath else: getCurrentDir()
   if optSkipParentConfigFiles notin gGlobalOptions:
     for dir in parentDirs(pd, fromRoot=true, inclusive=false):
-      result[0].add(dir / cfg)
+      readConfigFile(dir / cfg, cache, config)
 
   if optSkipProjConfigFile notin gGlobalOptions:
-    result[0].add(pd / cfg)
-    
+    readConfigFile(pd / cfg, cache, config)
+
     if gProjectName.len != 0:
       # new project wide config file:
       var projectConfig = changeFileExt(gProjectFull, "nimcfg")
@@ -252,15 +250,8 @@ proc loadConfigPaths*(cfg: string): (seq[string], bool) =
       if not fileExists(projectConfig):
         projectConfig = changeFileExt(gProjectFull, "nimrod.cfg")
         if fileExists(projectConfig):
-          result[1] = true
-      result[0].add(projectConfig)
-
-proc loadConfigs*(cfg: string; cache: IdentCache; config: ConfigRef = nil) =
-  var (paths, nimrod) = loadConfigPaths(cfg)
-  if nimrod:
-    rawMessage(warnDeprecated, paths[^1])
-  for path in paths:
-    readConfigFile(getSystemConfigPath(path), cache, config)
+          rawMessage(warnDeprecated, projectConfig)
+      readConfigFile(projectConfig, cache, config)
 
 proc loadConfigs*(cfg: string; config: ConfigRef = nil) =
   # for backwards compatibility only.

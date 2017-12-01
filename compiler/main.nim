@@ -244,9 +244,8 @@ proc mainCommand*(graph: ModuleGraph; cache: IdentCache) =
 
       msgWriteln($dumpdata, {msgStdout, msgSkipHook})
     else:
-      var (paths, nimrod) = loadConfigPaths(DefaultConfig)
-      for path in paths:
-        echo path
+      var nimcacheDir = options.getNimcacheDir()
+      echo nimcacheDir
       msgWriteln("-- list of currently defined symbols --",
                  {msgStdout, msgSkipHook})
       for s in definedSymbolNames(): msgWriteln(s, {msgStdout, msgSkipHook})
