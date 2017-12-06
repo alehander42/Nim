@@ -4092,3 +4092,6 @@ template doAssertRaises*(exception, code: untyped): typed =
     raiseAssert(astToStr(exception) &
                 " wasn't raised, another error was raised instead by:\n"&
                 astToStr(code))
+
+import graphprof
+
