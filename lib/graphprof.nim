@@ -173,7 +173,7 @@ proc displayGraph {.exportc: "displayGraph".} =
   #   EXIT
   #     <<KIND::1, CLOCK::8>
   var logSize = 0
-  for z in 0..<clocksLen:
+  for z in 0..<clocksLen.int:
     if lineNodes[z] == 0:
       if nodes[z][0] == '0':
         memcpy(log[logSize].addr, nodes[z].addr, 3)
