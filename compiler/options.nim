@@ -25,7 +25,7 @@ type                          # please make sure we have under 32 options
     optNone, optObjCheck, optFieldCheck, optRangeCheck, optBoundsCheck,
     optOverflowCheck, optNilCheck,
     optNaNCheck, optInfCheck,
-    optAssert, optGraphprof, optLineDir, optWarns, optHints,
+    optAssert, optGraphProf, optLineProf, optLineDir, optWarns, optHints,
     optOptimizeSpeed, optOptimizeSize, optStackTrace, # stack tracing support
     optLineTrace,             # line tracing support (includes stack tracing)
     optEndb,                  # embedded debugger
@@ -35,7 +35,7 @@ type                          # please make sure we have under 32 options
     optImplicitStatic,        # optimization: implicit at compile time
                               # evaluation
     optPatterns,              # en/disable pattern matching
-    optMemTracker
+    optMemTracker             # 26
 
   TOptions* = set[TOption]
   TGlobalOption* = enum       # **keep binary compatible**
