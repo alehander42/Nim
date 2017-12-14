@@ -284,7 +284,7 @@ proc genLineDir(p: BProc, t: PNode) =
       var lineRope = line.rope
       linefmt(p, cpsStmts, "nimln_($1, $2);$n",
               lineRope, tt.info.quotedFilename)
-      if p.prc != nil and optGraphprof in p.options:
+      if p.prc != nil and optGraphProf in p.options and optLineProf in p.options:
         # i am ashamed of how much time i lost debugging "
         linefmt(p, cpsStmts, "$1", genLineProfile(p, line, lineRope, "\"" & p.prc.name.s & "\"", p.prc))
       
@@ -849,8 +849,8 @@ proc genProcAux(m: BModule, prc: PSym) =
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
-      # echo optGraphprof in prc.options
-      if optGraphprof in prc.options:
+      # echo optGraphProf in prc.options
+      if optGraphProf in prc.options:
         add(generatedProc, startCallGraph(p, procname, prc))
     else:
       add(generatedProc, p.s(cpsLocals))
@@ -863,7 +863,7 @@ proc genProcAux(m: BModule, prc: PSym) =
     if p.beforeRetNeeded: add(generatedProc, ~"\t}BeforeRet_: ;$n")
     add(generatedProc, deinitGCFrame(p))
     if optStackTrace in prc.options:
-      if optGraphprof in prc.options:
+      if optGraphProf in prc.options:
         add(generatedProc, stopCallGraph(p, $procname))
       add(generatedProc, deinitFrame(p))
     add(generatedProc, returnStmt)
