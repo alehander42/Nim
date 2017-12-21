@@ -224,5 +224,8 @@ proc logGraph =
     memset(lineNodes, 0, 1_000_000 * sizeof(uint))
   clocksLen = 0
 
+proc onIndex*[T](s: seq[T], index: int) =
+  var a = index
+
 addQuitProc(logGraph)
 
