@@ -224,7 +224,10 @@ proc logGraph =
     memset(lineNodes, 0, 1_000_000 * sizeof(uint))
   clocksLen = 0
 
-proc onIndex*[T](s: seq[T], index: int) =
+# proc onIndex*[T](s: seq[T], index: int) {.exportc: "onIndex".} =
+#   var a = index
+
+proc onIndex*(index: int) {.exportc: "onIndex".} =
   var a = index
 
 addQuitProc(logGraph)

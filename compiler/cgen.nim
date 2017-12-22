@@ -232,7 +232,7 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
     result = true
 
 
-let graphFunctions = toSet(["\"lineProfile\"", "\"callGraph\"", "\"exitGraph\"", "\"logGraph\"", "\"displayGraph\"", "\"intGetSet\"", "\"contains\"", "\"getTicks\"", "\"getTicks2\"", "\"sysFatal\""])
+let graphFunctions = toSet(["\"onIndex\"", "\"lineProfile\"", "\"callGraph\"", "\"exitGraph\"", "\"logGraph\"", "\"displayGraph\"", "\"intGetSet\"", "\"contains\"", "\"getTicks\"", "\"getTicks2\"", "\"sysFatal\""])
 
 let gcFunctions = toSet([
   "\"asgnRef\"",

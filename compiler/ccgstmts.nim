@@ -1159,6 +1159,14 @@ proc genAsgn(p: BProc, e: PNode, fastAsgn: bool) =
   else:
     genLineDir(p, e)
     asgnFieldDiscriminant(p, e)
+  if e.sons[0].kind == nkBracketExpr:
+    var a: TLoc
+    initLocExpr(p, e.sons[0].sons[1], a)
+    let path = $p.prc.info
+    let name = p.prc.name.s
+    if not ("graphprof.nim" in path or "alloc.nim" in path or "gc.nim" in path) and name != "echoBinSafe":
+      # echo name
+      linefmt(p, cpsStmts, "onIndex($1);", rdLoc(a))
 
 proc genStmts(p: BProc, t: PNode) =
   var a: TLoc

@@ -923,13 +923,6 @@ proc genBracketExpr(p: BProc; n: PNode; d: var TLoc) =
   of tyCString: genCStringElem(p, n, n.sons[0], n.sons[1], d)
   of tyTuple: genTupleElem(p, n, d)
   else: internalError(n.info, "expr(nkBracketExpr, " & $ty.kind & ')')
-  var a, b: TLoc
-  initLocExpr(p, n.sons[0], a)
-  initLocExpr(p, n.sons[1], b)
-  linefmt(p, cpsStmts,
-           "onIndex($1, $2);",
-           rdLoc(a),
-           rdLoc(b))
 
 proc genAndOr(p: BProc, e: PNode, d: var TLoc, m: TMagic) =
   # how to generate code?
