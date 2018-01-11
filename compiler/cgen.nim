@@ -573,6 +573,7 @@ proc initFrame(p: BProc, procname, filename: Rope): Rope =
   else:
     result = rfmt(nil, "\tnimfr_($1, $2);$n", procname, filename)
 
+
 proc initFrameNoDebug(p: BProc; frame, procname, filename: Rope; line: int): Rope =
   discard cgsym(p.module, "nimFrame")
   addf(p.blocks[0].sections[cpsLocals], "TFrame $1;$n", [frame])
@@ -729,19 +730,6 @@ proc generateHeaders(m: BModule) =
   add(m.s[cfsHeaders], "#undef near" & tnl)
   add(m.s[cfsHeaders], "#undef powerpc" & tnl)
   add(m.s[cfsHeaders], "#undef unix" & tnl)
-
-proc initFrame(p: BProc, procname, filename: Rope): Rope =
-  discard cgsym(p.module, "nimFrame")
-  if p.maxFrameLen > 0:
-    discard cgsym(p.module, "VarSlot")
-    result = rfmt(nil, "\tnimfrs_($1, $2, $3, $4);$n",
-                  procname, filename, p.maxFrameLen.rope,
-                  p.blocks[0].frameLen.rope)
-  else:
-    result = rfmt(nil, "\tnimfr_($1, $2);$n", procname, filename)
-
-proc deinitFrame(p: BProc): Rope =
-  result = rfmt(p.module, "\t#popFrame();$n")
 
 proc startCallGraph(p: BProc, procname: Rope, prc: PSym): Rope =
   var s = $procname
