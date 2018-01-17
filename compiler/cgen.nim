@@ -733,10 +733,8 @@ proc generateHeaders(m: BModule) =
 
 proc startCallGraph(p: BProc, procname: Rope, prc: PSym): Rope =
   var s = $procname
-  # fuck me "" names
   if traced(s, p.module.filename):
     var function = toFunction(s, p.module.filename, $mangleName(p.module, prc))
-    # echo s, s != "chckRange", function
     result = rfmt(p.module, "\tFR_.functionID = $1;FR_.codeID = callGraph($1, &FR_.callID);$n", ~($function))
   else:
     result = rfmt(p.module, "")
@@ -837,7 +835,6 @@ proc genProcAux(m: BModule, prc: PSym) =
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
-      # echo optGraphProf in prc.options
       if optGraphProf in prc.options:
         add(generatedProc, startCallGraph(p, procname, prc))
     else:
