@@ -145,7 +145,7 @@ proc callGraph(function: int16, callID: var uint): int64 {.exportc: "callGraph".
   # echo clocksLen
   emit()
 
-  callID = functionCallID
+  callID = if functionCallID > 0.uint: functionCallID - 1.uint else: functionCallID
   return codeID - 1
 
 proc exitGraph {.exportc: "exitGraph".} =
