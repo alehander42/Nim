@@ -434,6 +434,10 @@ struct TFrame {
   NI64 callID;
 };
 
+// NU16 functionID_;
+// NI64 codeID_;
+// NI64 callID_;
+
 #ifdef NIM_NEW_MANGLING_RULES
   #define nimfr_(proc, file) \
     TFrame FR_; \

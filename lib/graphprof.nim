@@ -70,6 +70,7 @@ var stdout {.importc: "stdout", header: "<unistd.h>".}: Stream
 var calls: array[65_000, uint]
 var callLen: uint = 0
 var codeID: int64 = 0
+
 var functionNames {.importc: "functionNames".}: array[65_000, cstring]
 
 type

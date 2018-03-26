@@ -232,32 +232,54 @@ proc freshLineInfo(p: BProc; info: TLineInfo): bool =
     result = true
 
 
-let graphFunctions = toSet(["\"onIndex\"", "\"lineProfile\"", "\"callGraph\"", "\"exitGraph\"", "\"logGraph\"", "\"displayGraph\"", "\"intGetSet\"", "\"contains\"", "\"getTicks\"", "\"getTicks2\"", "\"sysFatal\""])
+let graphFunctions = toSet([
+  "onIndex",
+  "lineProfile",
+  "callGraph",
+  "exitGraph",
+  "logGraph",
+  "displayGraph",
+  "intGetSet",
+  "contains",
+  "getTicks",
+  "getTicks2",
+  "sysFatal",
+  "initStackBottomWith",
+  "addInt",
+  "subInt",
+  "mulInt",
+  "divInt",
+  "popFrame",
+  "nimFrame"])
 
 let gcFunctions = toSet([
-  "\"asgnRef\"",
-  "\"asgnRefNoCycle\"",
-  "\"nimGCunrefNoCycle\"",
-  "\"nimGCunrefRC1\"",
-  "\"unsureAsgnRef\"",
-  "\"initGC\"",
-  "\"usrToCell\"",
-  "\"cellToUsr\"",
-  "\"extGetCellType\"",
-  "\"internRefcount\"",
-  "\"addZCT\"",
-  "\"incRef\"",
-  "\"nimGCref\"",
-  "\"rtlAddCycleRoot\"",
-  "\"rtlAddZCT\"",
-  "\"rtlAddZCT\"",
-  "\"GC_addCycleRoot\""
+  "asgnRef",
+  "asgnRefNoCycle",
+  "nimGCunrefNoCycle",
+  "nimGCunrefRC1",
+  "unsureAsgnRef",
+  "initGC",
+  "usrToCell",
+  "cellToUsr",
+  "extGetCellType",
+  "internRefcount",
+  "addZCT",
+  "incRef",
+  "nimGCref",
+  "rtlAddCycleRoot",
+  "rtlAddZCT",
+  "rtlAddZCT",
+  "GC_addCycleRoot"
 ])
 
-template traced(s: typed, filename: string): untyped =
+proc traced(s: string, filename: string): bool =
   # var f = $filename
-  filename[len(filename) - 10.. ^1] != "system.nim" and
-    s notin graphFunctions and s notin gcFunctions
+  if s.len < 2:
+    return true
+  let name = s[1..^2]
+  let lib = filename.rsplit("/", 1)[1]
+  # echo name, " ", lib, " ", lib != "system.nim", " ", lib != "graphprof.nim"
+  lib != "system.nim" and lib != "graphprof.nim" and lib != "arithm.nim" and lib != "excpt.nim" and name notin graphFunctions and name notin gcFunctions
 
 proc genLineProfile(p: BProc, line: int, lineRope: Rope, procname: string, prc: PSym): Rope
 
@@ -735,7 +757,8 @@ proc startCallGraph(p: BProc, procname: Rope, prc: PSym): Rope =
   var s = $procname
   if traced(s, p.module.filename):
     var function = toFunction(s, p.module.filename, $mangleName(p.module, prc))
-    result = rfmt(p.module, "\tFR_.functionID = $1;FR_.codeID = callGraph($1, &FR_.callID);$n", ~($function))
+    # result = rfmt(p.module, "\tFR_.functionID = $1;FR_.codeID = callGraph($1, &FR_.callID);$n", ~($function))
+    result = rfmt(p.module, "\tNI64 callID_; NU16 functionID_ = $1; NI64 codeID_ = callGraph($1, &callID_);$n", ~($function))
   else:
     result = rfmt(p.module, "")
 
@@ -829,14 +852,14 @@ proc genProcAux(m: BModule, prc: PSym) =
     generatedProc = rfmt(nil, "$N$1 {$n$2$3$4}$N$N",
                          header, p.s(cpsLocals), p.s(cpsInit), p.s(cpsStmts))
   else:
-    generatedProc = rfmt(nil, "$N$1 {$N", header)
+    generatedProc = rfmt(nil, "$N$1 {$n", header)
     var procname = makeCString(prc.name.s)
+    if optGraphProf in prc.options:
+      add(generatedProc, startCallGraph(p, procname, prc))
     add(generatedProc, initGCFrame(p))
     if optStackTrace in prc.options:
       add(generatedProc, p.s(cpsLocals))
       add(generatedProc, initFrame(p, procname, prc.info.quotedFilename))
-      if optGraphProf in prc.options:
-        add(generatedProc, startCallGraph(p, procname, prc))
     else:
       add(generatedProc, p.s(cpsLocals))
     if optProfiler in prc.options:
@@ -848,9 +871,9 @@ proc genProcAux(m: BModule, prc: PSym) =
     if p.beforeRetNeeded: add(generatedProc, ~"\t}BeforeRet_: ;$n")
     add(generatedProc, deinitGCFrame(p))
     if optStackTrace in prc.options:
-      if optGraphProf in prc.options:
-        add(generatedProc, stopCallGraph(p, $procname))
       add(generatedProc, deinitFrame(p))
+    if optGraphProf in prc.options:
+      add(generatedProc, stopCallGraph(p, $procname))
     add(generatedProc, returnStmt)
     add(generatedProc, ~"}$N")
   add(m.s[cfsProcs], generatedProc)
