@@ -486,3 +486,5 @@ macro bindMethod*(procedure: typed): auto =
       newTree(nnkStmtList, thisQuote, call)
   )
   result = body
+
+include "node_system"
