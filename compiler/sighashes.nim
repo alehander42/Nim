@@ -9,7 +9,7 @@
 
 ## Computes hash values for routine (proc, method etc) signatures.
 
-import ast, md5
+import ast, md5, tables
 from hashes import Hash
 from astalgo import debug
 from types import typeToString, preferDesc
@@ -255,6 +255,11 @@ proc hashType(c: var MD5Context, t: PType; flags: set[ConsiderFlag]) =
     for i in 0..<t.len: c.hashType(t.sons[i], flags)
   if tfNotNil in t.flags and CoType notin flags: c &= "not nil"
 
+
+when defined(debugSigHashesText):
+  import tables
+  var savedSigHashes = initTable[string, string]()
+
 when defined(debugSigHashes):
   import db_sqlite
 
@@ -274,9 +279,38 @@ proc hashType*(t: PType; flags: set[ConsiderFlag] = {CoType}): SigHash =
   md5Init c
   hashType c, t, flags+{CoOwnerSig}
   md5Final c, result.Md5Digest
+  when defined(debugSigHashesText):
+    let r = $result
+    if not savedSigHashes.hasKey(r):
+      savedSigHashes[r] = typeToString(t)
+
   when defined(debugSigHashes):
     db.exec(sql"INSERT OR IGNORE INTO sighashes(type, hash) VALUES (?, ?)",
             typeToString(t), $result)
+
+
+when defined(debugSigHashesText):
+  import db_sqlite, osproc
+
+  proc saveSigHashes {.noconv.} =
+    var s = ""
+    for key, value in savedSigHashes:
+      s.add(key & "\t" & value & "\n")
+    writeFile("sighashes.csv", s)
+
+
+    let db = open(connection="sighashes.db", user="araq", password="",
+                  database="sighashes")
+    db.exec(sql"DROP TABLE IF EXISTS sighashes")
+    db.exec sql"""CREATE TABLE sighashes(
+      hash varchar(5000) not null,
+      type varchar(5000) not null,
+      unique (hash, type))"""
+
+    db.exec(sql"CREATE INDEX sighashes_hash ON sighashes (hash)")
+
+    discard execProcess("/bin/bash -c \"echo -e \\\".separator '\t' \n.import sighashes.csv sighashes\\\" | sqlite3 sighashes.db\"")
+  addQuitProc(saveSigHashes)
 
 proc hashProc*(s: PSym): SigHash =
   var c: MD5Context
