@@ -16,7 +16,7 @@ import
   llstream, strutils, ast, astalgo, lexer, syntaxes, renderer, options, msgs,
   os, condsyms, times,
   wordrecg, sem, semdata, idents, passes, docgen, extccomp,
-  cgen, jsgen, json, nversion,
+  cgen, jsgen, jsrenderer, json, nversion,
   platform, nimconf, importer, passaux, depends, vm, vmdef, types, idgen,
   docgen2, parser, modules, ccgutils, sigmatch, ropes,
   modulegraphs, tables, rod, lineinfos, pathutils
@@ -92,6 +92,7 @@ proc commandCompileToJS(graph: ModuleGraph) =
   defineSymbol(graph.config.symbols, "js")
   semanticPasses(graph)
   registerPass(graph, JSgenPass)
+  registerPass(graph, JSrenderPass)
   compileProject(graph)
 
 proc interactivePasses(graph: ModuleGraph) =
