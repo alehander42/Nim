@@ -116,6 +116,15 @@ proc render(node)
 proc renderNone(node) =
   discard
 
+proc renderIdent(node) =
+  genName $node
+
+proc renderVarSection(node) =
+  for child in node:
+    gen "var "
+    render child
+    gen ";\n"
+
 proc renderCall(node) =
   render node[0]
   gen "("
@@ -196,12 +205,12 @@ macro genCase(t: TNodeKind, name: untyped, args: varargs[untyped]): untyped =
       when declared(`callName`):
         `call`
       else:
+        echo "NO ", node.kind
         discard
     result.add(nnkOfBranch.newTree(aNode, code))
 
 proc render(node: PNode) =
   if not node.isNil:
-    echo node.kind
     genCase(TNodeKind.low, render, node)
 
 
