@@ -34,18 +34,24 @@ type
     tokens:         seq[TokenPosition]
     currentIndent:  int
     indentSize:     int
+    line:           int
+    col:            int
 
-  TokenKind = enum TCode, TFormatting
+  TokenKind = enum TCode, TFormatting, TName
 
   TokenPosition = object
-    start:  int
-    until:  int
-    kind:   TokenKind
+    start:       int
+    until:       int
+    kind:        TokenKind
+    jsLocation:  tuple[line: int, col: int]
+    nimLocation: TLineInfo
 
 var code = Code()
 
 using
   node: PNode
+
+# helpers
 
 template incIndent =
   code.currentIndent += 1
@@ -53,21 +59,106 @@ template incIndent =
 template decIndent =
   code.currentIndent -= 1
 
-template gen(t: string) =
-  code.raw.add(t)
-  code.tokens.add(TokenPosition(start: code.raw.len - t.len, until: code.raw.len))
+proc newToken(start: int, until: int, kind: TokenKind, jsLocation: tuple[line: int, col: int]): TokenPosition =
+  TokenPosition(
+    start: start,
+    until: until,
+    kind: kind,
+    jsLocation: jsLocation)
 
-template line(t: string) =
-  code.raw.add(repeat(' ', code.currentIndent * code.indentSize))
-  code.tokens.add(TokenPosition(start: code.raw.len - code.currentIndent * code.indentSize, until: code.raw.len, kind: TFormatting))
-  gen(t)
+template genToken(t: string, kind: TokenKind = TCode) =
+  code.raw.add(t)
+  code.tokens.add(
+    newToken(
+      code.raw.len - t.len,
+      code.raw.len,
+      kind,
+      (
+        line: code.line,
+        col: code.col)))
+      
+
+template nl =
   code.raw.add("\n")
   code.tokens.add(TokenPosition(start: code.raw.len - 1, until: code.raw.len, kind: TFormatting))
+  code.line += 1
+  code.col = 0
 
-proc render(node: PNode)
+proc gen(t: string) =
+  var last = 0
+  for i, c in t:
+    if c in NewLines:
+      if last != i:
+        genToken(t[last .. i - 1])
+      nl()
+      last = i + 1
+  if last != t.len:
+    genToken(t[last .. ^1])
+
+template genName(t: string) =
+  genToken(t, TName)
+
+template gen(t: string, t2: string) =
+  gen(t)
+  gen(t2)
+
+proc line(t: string) =
+  code.raw.add(repeat(' ', code.currentIndent * code.indentSize))
+  code.tokens.add(TokenPosition(start: code.raw.len - code.currentIndent * code.indentSize, until: code.raw.len, jsLocation: (line: code.line, col: 0), kind: TFormatting))
+  code.col = code.currentIndent * code.indentSize
+  gen(t)
+  nl()
+
+# node
+
+proc render(node)
 
 proc renderNone(node) =
   discard
+
+proc renderCall(node) =
+  render node[0]
+  gen "("
+  render node[1]
+  gen ")"
+
+proc renderForRange(node; name: string) =
+  if node.kind == nkInfix and $node[0] == "..<":
+    gen "var "
+    genName name
+    gen " = "
+    render node[1]
+    gen "; "
+    genName name
+    gen " < "
+    render node[2]
+    gen "; "
+    genName name
+    gen "+=1"
+
+proc renderForStmt(node) =
+  gen "for ("
+  renderForRange(node[1], $node[0])
+  gen ") {\n"
+  incIndent()
+  render node[2]
+  decIndent()
+  gen "}"
+
+proc renderIfStmt(node; inElse: bool = false) =
+  if inElse:
+    gen "else "
+  gen "if", " ("
+  render node[0]
+  gen ") {"
+  nl()
+  render node[1]
+  gen "\n}\n"
+  if node.len > 2 and not node[2].isNil:
+    if node[2].kind == nkIfStmt:
+      renderIfStmt(node[2], inElse=true)
+    else:
+      render(node[2])
 
 proc renderProcDef(node) =
   assert node[1].kind == nkVerbatim
