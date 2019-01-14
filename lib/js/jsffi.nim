@@ -110,6 +110,39 @@ proc isNull*[T](x: T): bool {.noSideEffect, importcpp: "(# === null)".}
 proc isUndefined*[T](x: T): bool {.noSideEffect, importcpp: "(# === undefined)".}
   ## check if a value is exactly undefined
 
+
+
+proc compatibleTypes(T: typedesc, B: typedesc): bool =
+  var res = true
+  var t: T
+  var b2: B
+  for name, b in fieldPairs(t):
+    var found = false
+    for otherName, otherB in fieldPairs(b2):
+      if name == otherName:
+        found = true
+        if type(b) isnot type(otherB):
+          res = false
+        break
+    if not found or res == false:
+      res = false
+      break
+  res
+
+type
+  JsObj*[T: tuple] = concept a, type B
+    compatibleTypes(T, B)
+
+  # we override tuple with that, but we can't pass [a: type..] directly to JSTuple
+  JSTuple*[T: tuple] = ref object
+    t: T
+
+converter r*[T](a: JSTuple[T]): JsObject =
+  a.toJs
+
+converter rus*[T: tuple](t: JSTuple[T]): T =
+  cast[T](t)
+
 # Exceptions
 type
   JsError* {.importc: "Error".} = object of JsRoot
@@ -217,6 +250,24 @@ proc `==`*(x, y: JsRoot): bool {. importcpp: "(# === #)" .}
   ## and not strings or numbers, this is a *comparison of references*.
 
 {. experimental .}
+
+macro `.`*[T: tuple](a: JSTuple[T], field: untyped): auto =
+  # we override so we can generate literal, not tuple access
+  if validJsName($field):
+    let importString = "#." & $field
+    result = quote do:
+      proc helper(o: JsObject): type(`a`.t.`field`)
+        {. importcpp: `importString`, gensym .}
+      helper(`a`.toJs)
+  else:
+    if not mangledNames.hasKey($field):
+      mangledNames[$field] = $mangleJsName($field)
+    let importString = "#." & mangledNames[$field]
+    result = quote do:
+      proc helper(o: JsObject): type(`a`.t.`field`)
+        {. importcpp: `importString`, gensym .}
+      helper(`a`.toJs)
+
 macro `.`*(obj: JsObject, field: untyped): JsObject =
   ## Experimental dot accessor (get) for type JsObject.
   ## Returns the value of a property of name `field` from a JsObject `x`.
@@ -401,6 +452,8 @@ iterator keys*[K: JsKey, V](assoc: JSAssoc[K, V]): K =
   yield k.toJsKey(K)
   {.emit: "}".}
 
+
+
 # Literal generation
 
 macro `{}`*(typ: typedesc, xs: varargs[untyped]): auto =
@@ -426,6 +479,8 @@ macro `{}`*(typ: typedesc, xs: varargs[untyped]): auto =
   ##  {. emit: "var obj = {a: 1, k: "foo", d: 42};" .}
   ##
   let a = !"a"
+  var t = nnkBracketExpr.newTree(ident"JSTuple", nnkTupleTy.newTree())
+
   var body = quote do:
     var `a` {.noinit.}: `typ`
     {.emit: "`a` = {};".}
@@ -443,6 +498,10 @@ macro `{}`*(typ: typedesc, xs: varargs[untyped]): auto =
           `a`[`k`] = `v`
         else:
           `a`[`kString`] = `v`
+      t[1].add nnkIdentDefs.newTree(
+        k,
+        nnkCall.newTree(ident"type", v),
+        newEmptyNode())
 
     else:
       error("Expression `" & $x.toStrLit & "` not allowed in `{}` macro")
@@ -453,8 +512,8 @@ macro `{}`*(typ: typedesc, xs: varargs[untyped]): auto =
   result = quote do:
     proc inner(): `typ` {.gensym.} =
       `body`
-    inner()
-
+    cast[`t`](inner())
+  
 # Macro to build a lambda using JavaScript's `this`
 # from a proc, `this` being the first argument.
 
@@ -514,3 +573,4 @@ macro bindMethod*(procedure: typed): auto =
       newTree(nnkStmtList, thisQuote, call)
   )
   result = body
+
