@@ -53,7 +53,7 @@ in ``if``, ``while``, ``case``, ``and``, ``or``
 
 e.g.
 
-.. code-block::nim
+.. code-block:: nim
   not nilable.isNil and nilable.a > 0
 
 is fine.
@@ -63,7 +63,7 @@ However, certain constructs invalidate the value ``not-nil``-ness.
 - calls to functions where the location we check is passed by var
 - reassignments of the checked location
 
-.. code-block::nim
+.. code-block:: nim
   if not nilable.isNil:
     nilable.a = 5 # OK
     var other = 7 # OK
@@ -103,7 +103,7 @@ They can be created with only some overloads of ``newSeq``:
 ``newSeq(length, unsafeDefault(T))``: ``default`` isn't defined for ``ref T not nil``, ``unsafeDefault`` is equivalent to ``nil``.
 However this should be used only in edge cases.
 
-.. code-block::nim
+.. code-block:: nim
   newSeqWithInit(length):
     Object(a: it)
 
@@ -114,7 +114,7 @@ However one can use ``grow`` similarly to ``newSeq`` :
 
 ``grow(length, unsafeDefault(T))``: ensuring that you fill the new elements with non nil values manually
 
-.. code-block::nim
+.. code-block:: nim
   growWithInit(length):
     Object(a: it)
 
