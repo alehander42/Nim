@@ -141,15 +141,11 @@ Initialization of non nilable pointers
 
 
 The compiler ensures that every code path initializes variables which contain
-non nilable pointers. The details of this analysis are still to be specified
-here.
+non nilable pointers. 
 
-TODO
-
-- no implicit initialization for object types depending on such fields
-- proving each path in a proc sets result if return type
-- forbidding direct construction without initialization of those fields for them
-- maybe using unsafeDefault as escape hatch
+- no implicit initialization for object types is lifted from their fields
+- it proves that each path in a proc sets result if there is ``not nil`` return type
+- if a type can't be implicitly initialized, it should be constructed directly with explicitly filling the required ``not nil`` fields
 
 
 Not nil refs in sequences
