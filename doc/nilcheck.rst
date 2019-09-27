@@ -32,12 +32,13 @@ Syntax:
 - ``maybe nil A`` request from the #nim channel: in some ways more obvious than ``nil`` (``nil A`` sounds a bit like ``nil and A``), but maybe it sounds like Option
 - ``A or nil`` request from the #nim channel, maybe Araq?: however, clashing with type classes, maybe an exception
 
- 
+Please leave some feedback for the syntax (best with some explanation)
+
 If a type can include ``nil`` as a valid value, dereferencing values of the type
 is checked for by the compiler: if a value which might be nil is derefences, this produces a warning by default, an error if
 `--strickNilChecks` is enabled.
 
-You can still turn off nil checking on function level by using the `{.nilCheck: off}.` pragma.
+You can still turn off nil checking on function/module level by using a `{.nilCheck: off}.` pragma.
 
 We use flow-sensitive typing to check nilability.
 
