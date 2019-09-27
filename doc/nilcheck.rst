@@ -116,8 +116,6 @@ When two branches "join", a location is still safe to dererence, if it was not-n
     echo a.a
   # here a is safe to dereference
 
-newSeq(length, unsafeDefault(T))
-..
 
 Initialization of non nilable pointers
 ---------------------------------------
