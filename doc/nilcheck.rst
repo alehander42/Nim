@@ -1,15 +1,17 @@
 Not nil annotation
 ------------------
 
-All types for which ``nil`` is a valid value can be annotated to
-exclude ``nil`` as a valid value with the ``not nil`` annotation:
+Ref types are ``not nil`` by default.
+They can be annotated to include ``nil`` with the ``nil`` annotation or ``?`` : still bikeshedding 
 
 .. code-block:: nim
   type
-    NilableObject = ref object
+    Object = ref object
       a: int
-    Object = NilableObject not nil
-    Proc = (proc (x, y: int)) not nil
+    NilableObject = nil Object
+
+    Proc = (proc (x, y: int))
+
 
   proc p(x: Object) =
     echo x.a # ensured to dereference without an error
@@ -21,7 +23,16 @@ exclude ``nil`` as a valid value with the ``not nil`` annotation:
   var x: Object
   p(x)
 
-If they can include ``nil`` as a valid value, dereferencing values of the type
+Syntax:
+
+- ``nil A`` more nim-ish maybe
+- ``?A`` popular from c# and typescript, but here its prefix, shorter, maybe more clear
+- ``can nil A`` request from the #nim channel: two keywords, but maybe similar to not nil
+- ``maybe nil A`` request from the #nim channel: in some ways more obvious than ``nil`` (``nil A`` sounds a bit like ``nil and A``), but maybe it sounds like Option
+- ``A or nil`` request from the #nim channel, maybe Araq?: however, clashing with type classes, maybe an exception
+
+ 
+If a type can include ``nil`` as a valid value, dereferencing values of the type
 is checked for by the compiler: if a value which might be nil is derefences, this produces a warning by default, an error if
 `--strickNilChecks` is enabled.
 
@@ -45,8 +56,9 @@ Safe dereferencing can be done only on certain locations:
 - ``var`` local variables
 - ``let`` variables
 - arguments
+- procedures
 
-Dereferencing operations: look at [Reference and pointer types]
+Dereferencing operations: look at [Reference and pointer types], for procedures: calling
 
 It's enough to ensure that a value is not nil in a certain branch, to dereference it safely there: the language recognizes such checks
 in ``if``, ``while``, ``case``, ``and``, ``or``
@@ -88,9 +100,23 @@ When two branches "join", a location is still safe to dererence, if it was not-n
     echo a.a
   # here a is safe to dereference
 
+newSeq(length, unsafeDefault(T))
+..
+
+Initialization of non nilable pointers
+---------------------------------------
+
+
 The compiler ensures that every code path initializes variables which contain
 non nilable pointers. The details of this analysis are still to be specified
 here.
+
+TODO
+
+- no implicit initialization for object types depending on such fields
+- proving each path in a proc sets result if return type
+- forbidding direct construction without initialization of those fields for them
+- maybe using unsafeDefault as escape hatch
 
 
 Not nil refs in sequences
