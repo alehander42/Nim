@@ -72,6 +72,16 @@ e.g.
 
 is fine.
 
+``case`` can be used as well
+
+.. code-block:: nim
+
+  case a.isNil:
+  of true:
+    echo a.a # error
+  of false:
+    echo 0
+
 However, certain constructs invalidate the value ``not-nil``-ness. 
 
 - calls to functions where the location we check is passed by var
