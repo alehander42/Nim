@@ -143,7 +143,7 @@ Initialization of non nilable pointers
 The compiler ensures that every code path initializes variables which contain
 non nilable pointers. 
 
-- if a type can't be implicitly initialized, it should be constructed directly with explicitly filling the required ``not nil`` fields
+- if a value of a type can't be implicitly initialized, it should be constructed directly with explicitly filling the required ``not nil`` fields
 - ``no implicit initialization`` for object types is lifted from their fields
 - the compiler proves that each path in a proc sets result if there is ``not nil`` return type
 
