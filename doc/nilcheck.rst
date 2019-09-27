@@ -39,6 +39,8 @@ is checked for by the compiler: if a value which might be nil is derefences, thi
 
 You can still turn off nil checking on function level by using the `{.nilCheck: off}.` pragma.
 
+We use flow-sensitive typing to check nilability.
+
 If a type is nilable, you should dereference its values only after a `isNil` check, e.g.:
 
 .. code-block:: nim
@@ -96,6 +98,15 @@ However, certain constructs invalidate the value ``not-nil``-ness.
     call() # maybe sets nilable to `nil`?
     echo nilable.a # warning/error: `nilable` might be nil
 
+If we do a check in a e.g. ``if``, the other branches (e.g. ``else``) assume the opposite fact about the nilability of a value.
+
+.. code-block:: nim
+  
+  if a.isNil:
+    echo 0
+  else: # a is not nilable
+    echo a.a
+
 Additional check is that the return value is also ``not nil``, if that's expected by the return type
 
 .. code-block:: nim
@@ -105,6 +116,13 @@ Additional check is that the return value is also ``not nil``, if that's expecte
       result = a # OK
     result = a # warning/error
 
+Early return after nil check is ok: the behavior is the same as if the remaining code was in else
+
+.. code-block:: nim
+  
+  if a.isNil:
+    return
+  a[] # ok
 
 When two branches "join", a location is still safe to dererence, if it was not-nilable in the end of both branches, e.g.
 
