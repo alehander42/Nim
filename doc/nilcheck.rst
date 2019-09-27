@@ -5,6 +5,7 @@ Ref types are ``not nil`` by default.
 They can be annotated to include ``nil`` with the ``nil`` annotation or ``?`` : still bikeshedding 
 
 .. code-block:: nim
+
   type
     Object = ref object
       a: int
@@ -41,6 +42,7 @@ You can still turn off nil checking on function level by using the `{.nilCheck: 
 If a type is nilable, you should dereference its values only after a `isNil` check, e.g.:
 
 .. code-block:: nim
+
   proc p(x: NilableObject) =
     if not x.isNil:
       echo x.a
@@ -66,6 +68,7 @@ in ``if``, ``while``, ``case``, ``and``, ``or``
 e.g.
 
 .. code-block:: nim
+
   not nilable.isNil and nilable.a > 0
 
 is fine.
@@ -76,6 +79,7 @@ However, certain constructs invalidate the value ``not-nil``-ness.
 - reassignments of the checked location
 
 .. code-block:: nim
+
   if not nilable.isNil:
     nilable.a = 5 # OK
     var other = 7 # OK
@@ -86,6 +90,7 @@ However, certain constructs invalidate the value ``not-nil``-ness.
 Additional check is that the return value is also ``not nil``, if that's expected by the return type
 
 ..code-block::nim
+
   proc p(a: Nilable): Nilable not nil =
     if not a.isNil:
       result = a # OK
@@ -94,6 +99,7 @@ Additional check is that the return value is also ``not nil``, if that's expecte
 When two branches "join", a location is still safe to dererence, if it was not-nilable in the end of both branches, e.g.
 
 ..code-block::nim
+
   if a.isNil:
     a = Object()
   else:
@@ -130,6 +136,7 @@ They can be created with only some overloads of ``newSeq``:
 However this should be used only in edge cases.
 
 .. code-block:: nim
+
   newSeqWithInit(length):
     Object(a: it)
 
@@ -141,6 +148,7 @@ However one can use ``grow`` similarly to ``newSeq`` :
 ``grow(length, unsafeDefault(T))``: ensuring that you fill the new elements with non nil values manually
 
 .. code-block:: nim
+
   growWithInit(length):
     Object(a: it)
 
