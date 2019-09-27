@@ -88,16 +88,17 @@ However, certain constructs invalidate the value ``not-nil``-ness.
 
 Additional check is that the return value is also ``not nil``, if that's expected by the return type
 
-..code-block::nim
+.. code-block::nim
 
   proc p(a: Nilable): Nilable not nil =
     if not a.isNil:
       result = a # OK
     result = a # warning/error
 
+
 When two branches "join", a location is still safe to dererence, if it was not-nilable in the end of both branches, e.g.
 
-..code-block::nim
+.. code-block::nim
 
   if a.isNil:
     a = Object()
