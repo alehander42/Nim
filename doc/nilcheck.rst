@@ -58,7 +58,6 @@ Safe dereferencing can be done only on certain locations:
 - ``var`` local variables
 - ``let`` variables
 - arguments
-- procedures
 
 Dereferencing operations: look at [Reference and pointer types], for procedures: calling
 
@@ -132,6 +131,31 @@ Not nil refs in sequences
 
 They can be created with only some overloads of ``newSeq``:  
 
+``newSeq(length)``: ``default`` for ``ref T not nil`` returns ``nil``, so the programmer is responsible to fill correctly the sequence.
+
+However this should be used only in edge cases.
+
+There is special treatment of ``setLen`` related functions as well: one can use ``shrink`` in all cases.
+However one can use ``grow`` similarly to ``newSeq`` :
+
+``grow(length)``: calls ``default``: expects that the programmer fills the new elements with non nil values manually.
+
+
+Not accepted ideas
+--------------------
+
+TODO: just for info before finishing 
+
+Those ideas were planned , but probably will not make it, to have a more minimal spec
+
+
+Old version of not nil refs in sequences
+-------------------------
+
+``seq[T]`` where ``T`` is ``ref`` and ``not nil`` are an interesing edge case: they are supported with some limitations.
+
+They can be created with only some overloads of ``newSeq``:  
+
 ``newSeq(length, unsafeDefault(T))``: ``default`` isn't defined for ``ref T not nil``, ``unsafeDefault`` is equivalent to ``nil``.
 However this should be used only in edge cases.
 
@@ -155,4 +179,5 @@ However one can use ``grow`` similarly to ``newSeq`` :
 similar to ``newSeqWithInit``
 
 Many generic algorithms can be done with the the safe ``shrink``, ``newSeqWithInit`` and ``growWithInit``, but ``unsafeDefault`` can be used as an escape hatch.
+
 
