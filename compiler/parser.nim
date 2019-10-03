@@ -2354,6 +2354,8 @@ proc parseString*(s: string; cache: IdentCache; config: ConfigRef;
   ## `filename` and `line`, although optional, provide info so that the
   ## compiler can generate correct error messages referring to the original
   ## source.
+  ctStart "parse " & filename
+  
   var stream = llStreamOpen(s)
   stream.lineOffset = line
 
@@ -2363,3 +2365,5 @@ proc parseString*(s: string; cache: IdentCache; config: ConfigRef;
 
   result = parser.parseAll
   closeParser(parser)
+  ctStop()
+

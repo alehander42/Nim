@@ -1850,7 +1850,8 @@ proc expandFilename*(filename: string): string {.rtl, extern: "nos$1",
     # But we need to free return value with free(3).
     var r = realpath(filename, nil)
     if r.isNil:
-      raiseOSError(osLastError())
+      # raiseOSError(osLastError())
+      result = ""
     else:
       result = $r
       c_free(cast[pointer](r))

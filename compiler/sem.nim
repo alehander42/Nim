@@ -597,6 +597,7 @@ proc recoverContext(c: PContext) =
 proc myProcess(context: PPassContext, n: PNode): PNode =
   var c = PContext(context)
   # no need for an expensive 'try' if we stop after the first error anyway:
+  ctStart "sem " & c.module.name.s
   if c.config.errorMax <= 1:
     result = semStmtAndGenerateGenerics(c, n)
   else:
@@ -615,6 +616,7 @@ proc myProcess(context: PPassContext, n: PNode): PNode =
         result = newNodeI(nkEmpty, n.info)
       #if c.config.cmd == cmdIdeTools: findSuggest(c, n)
   rod.storeNode(c.graph, c.module, result)
+
 
 proc reportUnusedModules(c: PContext) =
   for i in 0..high(c.unusedImports):
@@ -637,6 +639,7 @@ proc myClose(graph: ModuleGraph; context: PPassContext, n: PNode): PNode =
   popOwner(c)
   popProcCon(c)
   storeRemaining(c.graph, c.module)
+  ctStop()
 
 const semPass* = makePass(myOpen, myProcess, myClose,
                           isFrontend = true)
