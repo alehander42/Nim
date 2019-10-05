@@ -62,6 +62,7 @@ proc newModule(graph: ModuleGraph; fileIdx: FileIndex): PSym =
   result.kind = skModule
   let filename = AbsoluteFile toFullPath(graph.config, fileIdx)
   result.name = getIdent(graph.cache, splitFile(filename).name)
+  echo "newModule ", filename, " ", result.name.s
   if not isNimIdentifier(result.name.s):
     rawMessage(graph.config, errGenerated, "invalid module name: " & result.name.s)
   result.info = newLineInfo(fileIdx, 1, 1)

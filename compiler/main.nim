@@ -141,7 +141,7 @@ proc commandInteractive(graph: ModuleGraph) =
   if graph.config.commandArgs.len > 0:
     discard graph.compileModule(fileInfoIdx(graph.config, graph.config.projectFull), {})
   else:
-    var m = graph.makeStdinModule()
+    var m = graph.makeModule("/home/al/stdin.nim") #makeStdinModule()
     incl(m.flags, sfMainModule)
     processModule(graph, m, llStreamOpenStdIn())
 

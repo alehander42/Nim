@@ -1771,7 +1771,7 @@ template injectG() {.dirty.} =
   let g = BModuleList(graph.backend)
 
 proc myOpen(graph: ModuleGraph; module: PSym): PPassContext =
-  ctStart "gen " & module.name.s
+  when defined(codetracer): ctStart "gen " & module.name.s
   injectG()
   result = newModule(g, module, graph.config)
   if optGenIndex in graph.config.globalOptions and g.generatedHeader == nil:
@@ -1998,7 +1998,7 @@ proc myClose(graph: ModuleGraph; b: PPassContext, n: PNode): PNode =
       for x in disp: genProcAux(m, x.sym)
 
   m.g.modulesClosed.add m
-  ctStop()
+  when defined(codetracer): ctStop()
 
 proc genForwardedProcs(g: BModuleList) =
   # Forward declared proc:s lack bodies when first encountered, so they're given

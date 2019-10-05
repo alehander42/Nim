@@ -622,6 +622,8 @@ proc findFile*(conf: ConfigRef; f: string; suppressStdlib = false): AbsoluteFile
   if f.isAbsolute:
     result = if f.existsFile: AbsoluteFile(f) else: AbsoluteFile""
   else:
+    echo conf.searchPaths
+    echo conf.lazyPaths
     result = rawFindFile(conf, RelativeFile f, suppressStdlib)
     if result.isEmpty:
       result = rawFindFile(conf, RelativeFile f.toLowerAscii, suppressStdlib)
@@ -655,8 +657,10 @@ proc findModule*(conf: ConfigRef; modulename, currentModule: string): AbsoluteFi
           break
     let currentPath = currentModule.splitFile.dir
     result = AbsoluteFile currentPath / m
+    echo "m ", m, " currentPath ", currentPath, " result ", result
     if not fileExists(result):
       result = findFile(conf, m)
+      echo "fix ", result
   patchModule(conf)
 
 proc findProjectNimFile*(conf: ConfigRef; pkg: string): string =

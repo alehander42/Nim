@@ -63,9 +63,9 @@ proc importcSymbol*(conf: ConfigRef, sym: PSym): PNode =
     if lib != nil and lib.path.kind notin {nkStrLit..nkTripleStrLit}:
       globalError(conf, sym.info, "dynlib needs to be a string lit")
     var theAddr: pointer
-    if (lib.isNil or lib.kind == libHeader) and not gExehandle.isNil:
+    if (lib.isNil or lib.kind == libHeader) and not gExeHandle.isNil:
       # first try this exe itself:
-      theAddr = gExehandle.symAddr(name)
+      theAddr = gExeHandle.symAddr(name)
       # then try libc:
       if theAddr.isNil:
         let dllhandle = getDll(conf, gDllCache, libcDll, sym.info)
@@ -421,7 +421,7 @@ proc fficast*(conf: ConfigRef, x: PNode, destTyp: PType): PNode =
 proc callForeignFunction*(conf: ConfigRef, call: PNode): PNode =
   internalAssert conf, call.sons[0].kind == nkPtrLit
 
-  var cif: TCif
+  var cif: Tcif
   var sig: TParamList
   # use the arguments' types for varargs support:
   for i in 1..call.len-1:
@@ -461,7 +461,7 @@ proc callForeignFunction*(conf: ConfigRef, fn: PNode, fntyp: PType,
                           info: TLineInfo): PNode =
   internalAssert conf, fn.kind == nkPtrLit
 
-  var cif: TCif
+  var cif: Tcif
   var sig: TParamList
   for i in 0..len-1:
     var aTyp = args[i+start].typ

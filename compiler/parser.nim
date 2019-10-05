@@ -111,6 +111,7 @@ proc openParser*(p: var TParser, fileIdx: FileIndex, inputStream: PLLStream,
                  cache: IdentCache; config: ConfigRef) =
   ## Open a parser, using the given arguments to set up its internal state.
   ##
+  when defined(codetracer): ctStart "parse " & config.toFilename(fileIdx)
   initToken(p.tok)
   openLexer(p.lex, fileIdx, inputStream, cache, config)
   when defined(nimpretty):
@@ -128,6 +129,8 @@ proc closeParser(p: var TParser) =
   closeLexer(p.lex)
   when defined(nimpretty):
     closeEmitter(p.em)
+  when defined(codetracer): ctStop()
+
 
 proc parMessage(p: TParser, msg: TMsgKind, arg = "") =
   ## Produce and emit the parser message `arg` to output.
@@ -2354,7 +2357,7 @@ proc parseString*(s: string; cache: IdentCache; config: ConfigRef;
   ## `filename` and `line`, although optional, provide info so that the
   ## compiler can generate correct error messages referring to the original
   ## source.
-  ctStart "parse " & filename
+  
   
   var stream = llStreamOpen(s)
   stream.lineOffset = line
@@ -2365,5 +2368,4 @@ proc parseString*(s: string; cache: IdentCache; config: ConfigRef;
 
   result = parser.parseAll
   closeParser(parser)
-  ctStop()
 

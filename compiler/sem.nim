@@ -506,6 +506,8 @@ proc addCodeForGenerics(c: PContext, n: PNode) =
   c.lastGenericIdx = c.generics.len
 
 proc myOpen(graph: ModuleGraph; module: PSym): PPassContext =
+  when defined(codetracer): ctStart "sem " & module.name.s
+  
   var c = newContext(graph, module)
   if c.p != nil: internalError(graph.config, module.info, "sem.myOpen")
   c.semConstExpr = semConstExpr
@@ -597,7 +599,6 @@ proc recoverContext(c: PContext) =
 proc myProcess(context: PPassContext, n: PNode): PNode =
   var c = PContext(context)
   # no need for an expensive 'try' if we stop after the first error anyway:
-  ctStart "sem " & c.module.name.s
   if c.config.errorMax <= 1:
     result = semStmtAndGenerateGenerics(c, n)
   else:
@@ -639,7 +640,7 @@ proc myClose(graph: ModuleGraph; context: PPassContext, n: PNode): PNode =
   popOwner(c)
   popProcCon(c)
   storeRemaining(c.graph, c.module)
-  ctStop()
+  when defined(codetracer): ctStop()
 
 const semPass* = makePass(myOpen, myProcess, myClose,
                           isFrontend = true)

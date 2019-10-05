@@ -15,8 +15,8 @@ import
 when not defined(leanCompiler):
   import writetracking
 
-when defined(useDfa):
-  import dfa
+# when defined(useDfa):
+import dfa
 
 import liftdestructors
 
@@ -1034,9 +1034,10 @@ proc trackProc*(c: PContext; s: PSym, body: PNode) =
       "declared lock level is $1, but real lock level is $2" %
         [$s.typ.lockLevel, $t.maxLockLevel])
   when defined(useDfa):
-    if s.name.s == "testp":
-      dataflowAnalysis(s, body)
-      when false: trackWrites(s, body)
+    if s.name.s == "test1":
+      checkNil(s, body)
+      # dataflowAnalysis(s, body)
+      # when false: trackWrites(s, body)
 
 proc trackTopLevelStmt*(c: PContext; module: PSym; n: PNode) =
   if n.kind in {nkPragma, nkMacroDef, nkTemplateDef, nkProcDef, nkFuncDef,
