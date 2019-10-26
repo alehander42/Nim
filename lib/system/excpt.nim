@@ -288,6 +288,7 @@ proc stackTraceAvailable*(): bool
 
 when hasSomeStackTrace:
   proc rawWriteStackTrace(s: var string) =
+    
     when NimStackTrace:
       if framePtr == nil:
         add(s, "No stack traceback available\n")
