@@ -322,17 +322,31 @@ proc SetMinus(a, b: int): int {.compilerproc, asmNoStackFrame.} =
     return result;
   """
 
-proc cmpStrings(a, b: string): int {.asmNoStackFrame, compilerproc.} =
-  asm """
-    if (`a` == `b`) return 0;
-    if (!`a`) return -1;
-    if (!`b`) return 1;
-    for (var i = 0; i < `a`.length && i < `b`.length; i++) {
-      var result = `a`[i] - `b`[i];
-      if (result != 0) return result;
-    }
-    return `a`.length - `b`.length;
-  """
+proc cmpStrings(a, b: string): int {.asmNoStackFrame, compilerProc.} =
+  when nimvm:
+    if a == b:
+      return 0
+    if a.len == 0:
+      return -1
+    if b.len == 0:
+      return 1
+    for i in 0 ..< a.len:
+      if i >= b.len:
+        return 1
+      var res = a[i].ord - b[i].ord
+      if result != 0:
+        return res
+  else:
+    asm """
+      if (`a` == `b`) return 0;
+      if (!`a`) return -1;
+      if (!`b`) return 1;
+      for (var i = 0; i < `a`.length && i < `b`.length; i++) {
+        var result = `a`[i] - `b`[i];
+        if (result != 0) return result;
+      }
+      return `a`.length - `b`.length;
+    """
 
 proc cmp(x, y: string): int =
   return cmpStrings(x, y)

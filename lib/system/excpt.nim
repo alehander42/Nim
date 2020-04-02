@@ -307,7 +307,7 @@ when hasSomeStackTrace:
 
   proc stackTraceAvailable*(): bool
 
-  proc rawWriteStackTrace(s: var string) =
+  proc rawWriteStackTrace*(s: var string) =
     when defined(nimStackTraceOverride):
       add(s, "Traceback (most recent call last, using override)\n")
       auxWriteStackTraceWithOverride(s)
