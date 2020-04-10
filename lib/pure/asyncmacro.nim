@@ -427,8 +427,9 @@ template await*[T](f: Future[T]): auto =
     yield internalTmpFuture
     if not isNil(internalTmpFuture.error):
       # TODO?
-      echo "[debug]:" & internalTmpFuture.error.msg
-      echo internalTmpFuture.errorStackTrace
+      # TODO turn on for me
+      # echo "[debug]:" & internalTmpFuture.error.msg
+      # echo internalTmpFuture.errorStackTrace
       raise internalTmpFuture.error
     cast[type(f)](internalTmpFuture).internalRead()
   else:
