@@ -431,7 +431,9 @@ template await*[T](f: Future[T]): auto =
       # echo "[debug]:" & internalTmpFuture.error.msg
       # echo internalTmpFuture.errorStackTrace
       raise internalTmpFuture.error
-    cast[type(f)](internalTmpFuture).internalRead()
+    # static:
+      # echo instantiationInfo(1)
+    (cast[type(f)](internalTmpFuture)).read() #internalRead()
   else:
     static:
       assert(false, "Await only available within {.async.}")
