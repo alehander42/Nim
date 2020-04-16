@@ -517,9 +517,3 @@ proc all*[T](futs: varargs[Future[T]]): auto =
       retFuture.complete(retValues)
 
     return retFuture
-
-# based on the yglukhov's patch to chronos(the await template is also based on his patch): https://github.com/status-im/nim-chronos/pull/47
-proc internalRead*[T](fut: Future[T] | FutureVar[T]): T {.inline.} =
-  # For internal use only. Used in asyncmacro
-  when T isnot void:
-    return fut.value

@@ -271,6 +271,7 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
           subRetType),
       newLit(prcName)))) # Get type from return type of this proc
 
+  # TODO upstream: for debugging, support setting this linedir to the function one
   # -> iterator nameIter(): FutureBase {.closure.} =
   # ->   {.push warning[resultshadowed]: off.}
   # ->   var result: T
@@ -278,6 +279,7 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
   # ->   <proc_body>
   # ->   complete(retFuture, result)
   var iteratorNameSym = genSym(nskIterator, $prcName & "Iter")
+  copyLineInfo(iteratorNameSym, prc)
   var procBody = prc.body.processBody(retFutureSym, subtypeIsVoid,
                                     futureVarIdents)
   # don't do anything with forward bodies (empty)
@@ -408,34 +410,28 @@ macro multisync*(prc: untyped): untyped =
   result.add(sync)
   # echo result.repr
 
+# overload for type which is not Future[T]
 template await*(f: untyped): untyped =
   when declared(retFuture):
     static:
-      assert(false, "Await expects future")
+      assert(false, "await expects Future[T], got " & $typeof(f))
   elif not declared(inMultisync):
     static:
-      assert(false, "Await only available within {.async.}")
+      assert(false, "await only available within {.async.}")
   else:
     f
 
 # based on the yglukhov's patch to chronos: https://github.com/status-im/nim-chronos/pull/47
+# just generate invalid the same linedir for all
+# i dont want to go into debugging, but i might need to
 template await*[T](f: Future[T]): auto =
   when declared(retFuture):
     when not declared(internalTmpFuture):
       var internalTmpFuture: FutureBase
     internalTmpFuture = f
     yield internalTmpFuture
-    if not isNil(internalTmpFuture.error):
-      # TODO?
-      # TODO turn on for me
-      # echo "[debug]:" & internalTmpFuture.error.msg
-      # echo internalTmpFuture.errorStackTrace
-      raise internalTmpFuture.error
-    # static:
-      # echo instantiationInfo(1)
-    (cast[type(f)](internalTmpFuture)).read() #internalRead()
+    (cast[type(f)](internalTmpFuture)).read()
   else:
     static:
-      assert(false, "Await only available within {.async.}")
-
-
+      assert(false, "await only available within {.async.}")
+  
