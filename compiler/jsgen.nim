@@ -2606,7 +2606,8 @@ proc myClose(graph: ModuleGraph; b: PPassContext, n: PNode): PNode =
   if sfMainModule in m.module.flags:
     var code = genHeader() & wholeCode(graph, m)
     let outFile = m.config.prepareToWriteOutput()
-
+    # var a: seq[int]
+    # echo "close ", a[1]
     if optSourcemap in m.config.globalOptions:
       var map: SourceMap
       (code, map) = genSourceMap($(code), mangled, outFile.string)

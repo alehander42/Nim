@@ -1303,6 +1303,7 @@ proc transformClosureIterator*(g: ModuleGraph; fn: PSym, n: PNode): PNode =
   n = ctx.lowerStmtListExprs(n, ns)
 
   if n.hasYieldsInExpressions():
+    echo n
     internalError(ctx.g.config, "yield in expr not lowered")
 
   # Splitting transformation
