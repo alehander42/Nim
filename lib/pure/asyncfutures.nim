@@ -21,12 +21,16 @@ type
     callbacks: CallbackList
 
     finished: bool
+    cancelled*: bool # TODO one?
+    # pending*: 
     error*: ref Exception              ## Stored exception
     errorStackTrace*: string
+    token: ref CancellationToken # tokens
+    # children*: seq[FutureBase]
     when not defined(release):
       stackTrace: seq[StackTraceEntry] ## For debugging purposes only.
       id: int
-      fromProc: string
+      fromProc*: string
 
   Future*[T] = ref object of FutureBase ## Typed future.
     value: T                            ## Stored value
@@ -35,6 +39,12 @@ type
 
   FutureError* = object of Defect
     cause*: FutureBase
+
+  Cancel* = object of CatchableError
+
+  CancellationToken* = object
+    cancelled*: bool
+  
 
 when not defined(release):
   var currentID = 0
@@ -517,3 +527,50 @@ proc all*[T](futs: varargs[Future[T]]): auto =
       retFuture.complete(retValues)
 
     return retFuture
+
+
+# Inspired by discussions with zahary, chronos and .Net cancellation tokens API
+
+
+proc newCancellationToken*: ref CancellationToken =
+  new(result)
+  result[] = CancellationToken(cancelled: false)
+
+proc setToken*[T](future: Future[T], token: ref CancellationToken) =
+  echo "set token ", cast[FutureBase](future).fromProc
+  future.token = token
+
+
+proc cancellable*[T](future: Future[T]): Future[T] =
+  ## var future = cancellable a() # if you dont want newCancellationToken and setToken() 
+  ## future.cancel() 
+  var token = newCancellationToken()
+  future.setToken(token)
+  return future
+
+template getToken*[T](future: Future[T]): ref CancellationToken =
+  future.token
+
+proc cancel*(token: ref CancellationToken) =
+  echo "token cancel"
+  token.cancelled = true
+  
+proc cancel*[T](future: Future[T]) =
+  assert not future.token.isNil, "can't cancel without token"
+  future.token.cancel()
+
+
+proc cancelAndWait*[T](future: Future[T]): Future[void] =
+  echo "cancel"
+  future.cancel()
+  
+  result = newFuture[void]("cancelAndWait")
+  
+  # workaround for .gcsafe                 
+  # TODO: is it safe?
+  var res = result 
+  
+  # complete as a callback
+  future.addCallback proc {.closure, gcsafe.} =
+    if future.finished:
+      res.complete()

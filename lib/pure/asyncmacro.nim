@@ -24,6 +24,9 @@ template createCb(retFutureSym, iteratorNameSym,
         # Continue while the yielded future is already finished.
         while (not next.isNil) and next.finished:
           next = unown nameIterVar()
+          # if not retFutureSym.isNil and retFutureSym.cancelled: # == Cancelled:
+            # raise newException(Cancel, $strName & " is a cancelled future")
+          # catch cancellations where you need with addCallback / try except
           if nameIterVar.finished:
             break
 
@@ -37,6 +40,9 @@ template createCb(retFutureSym, iteratorNameSym,
             {.push hint[ConvFromXtoItselfNotNeeded]: off.}
             next.addCallback cast[proc() {.closure, gcsafe.}](identName)
             {.pop.}
+    # except Cancel:
+      # echo "cancel"
+      # raise
     except:
       futureVarCompletions
       if retFutUnown.finished:
@@ -101,7 +107,6 @@ proc processBody(node, retFutureSym: NimNode,
     result[i] = processBody(result[i], retFutureSym, subTypeIsVoid,
                             futureVarIdents)
 
-  # echo result.repr
 
 proc getName(node: NimNode): string {.compileTime.} =
   case node.kind
@@ -272,9 +277,17 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
 
     template await[T](f: Future[T]): auto =
       var internalTmpFuture: FutureBase = f
+      if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil:
+        f.setToken(`retFutureSym`.getToken())
       yield internalTmpFuture
+      if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil and `retFutureSym`.getToken().cancelled:
+        raise newException(Cancel, $`prcName` & " is a cancelled future")
       (cast[type(f)](internalTmpFuture)).read()
-
+    
+    template earlyReturn: untyped =
+      `retFutureSym`.complete()
+      return
+  
   if procBody.kind != nnkEmpty:
     result.body = quote:
       `awaitDefinition`
@@ -353,7 +366,7 @@ macro multisync*(prc: untyped): untyped =
   result = newStmtList()
   result.add(asyncSingleProc(asyncPrc))
   result.add(sync)
-  # echo result.repr
+
 
 # overload for await as a fallback handler, based on the yglukhov's patch to chronos: https://github.com/status-im/nim-chronos/pull/47
 # template await*(f: typed): untyped =
