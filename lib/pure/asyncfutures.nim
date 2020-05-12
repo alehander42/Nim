@@ -21,7 +21,7 @@ type
     callbacks: CallbackList
 
     finished: bool
-    cancelled*: bool # TODO one?
+    # cancelled*: bool # TODO one?
     # pending*: 
     error*: ref Exception              ## Stored exception
     errorStackTrace*: string
@@ -44,6 +44,7 @@ type
 
   CancellationToken* = object
     cancelled*: bool
+    children*: seq[ref CancellationToken]
   
 
 when not defined(release):
@@ -222,6 +223,7 @@ proc complete*[T](future: Future[T], val: T) =
   assert(future.error == nil)
   future.value = val
   future.finished = true
+  echo "  <- " & future.fromProc # complete
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -231,6 +233,7 @@ proc complete*(future: Future[void]) =
   checkFinished(future)
   assert(future.error == nil)
   future.finished = true
+  echo "  <- " & future.fromProc # complete
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -240,6 +243,7 @@ proc complete*[T](future: FutureVar[T]) =
   checkFinished(fut)
   assert(fut.error == nil)
   fut.finished = true
+  echo "  <- " & future.fromProc # complete
   fut.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(Future[T](future))
 
@@ -426,6 +430,10 @@ proc failed*(future: FutureBase): bool =
   ## Determines whether ``future`` completed with an error.
   return future.error != nil
 
+proc cancelled*(future: FutureBase): bool =
+  ## Is the ``future`` cancelled ?
+  return not future.token.isNil and future.token.cancelled
+
 proc asyncCheck*[T](future: Future[T]) =
   ## Sets a callback on ``future`` which raises an exception if the future
   ## finished with an error.
@@ -441,10 +449,18 @@ proc asyncCheck*[T](future: Future[T]) =
       raise future.error
   future.callback = asyncCheckCallback
 
+proc newCancellationToken*(tokens: seq[ref CancellationToken] = @[]): ref CancellationToken
+
 proc `and`*[T, Y](fut1: Future[T], fut2: Future[Y]): Future[void] =
   ## Returns a future which will complete once both ``fut1`` and ``fut2``
   ## complete.
   var retFuture = newFuture[void]("asyncdispatch.`and`")
+  if fut1.token.isNil or fut2.token.isNil:
+    retFuture.token = nil
+  elif fut1.token != fut2.token:
+    retFuture.token = newCancellationToken(@[fut1.token, fut2.token])
+  else:
+    retFuture.token = fut1.token
   fut1.callback =
     proc () =
       if not retFuture.finished:
@@ -460,7 +476,22 @@ proc `and`*[T, Y](fut1: Future[T], fut2: Future[Y]): Future[void] =
 proc `or`*[T, Y](fut1: Future[T], fut2: Future[Y]): Future[void] =
   ## Returns a future which will complete once either ``fut1`` or ``fut2``
   ## complete.
+  ## 
+  ## if we pass tasks with tokens: we need to link them to our token
+  ## if they have no token: they either are created "anonimously", so
+  ## they cant be cancelled, or they are created "explicitly", so
+  ## users can add manually a token to them
+  ## however in the second case, cancelling the result future should fail
+  ## as one of the args cant be cancelled => so we leave our token to nil
   var retFuture = newFuture[void]("asyncdispatch.`or`")
+  if fut1.token.isNil or fut2.token.isNil:
+    retFuture.token = nil
+  elif fut1.token != fut2.token:
+    retFuture.token = newCancellationToken(@[fut1.token, fut2.token])
+  else:
+    retFuture.token = fut1.token
+  # the result token would be set later, hm, can we 
+
   proc cb[X](fut: Future[X]) =
     if not retFuture.finished:
       if fut.failed: retFuture.fail(fut.error)
@@ -532,18 +563,18 @@ proc all*[T](futs: varargs[Future[T]]): auto =
 # Inspired by discussions with zahary, chronos and .Net cancellation tokens API
 
 
-proc newCancellationToken*: ref CancellationToken =
+proc newCancellationToken*(tokens: seq[ref CancellationToken] = @[]): ref CancellationToken =
   new(result)
-  result[] = CancellationToken(cancelled: false)
+  result[] = CancellationToken(cancelled: false, children: tokens)
 
 proc setToken*[T](future: Future[T], token: ref CancellationToken) =
-  echo "set token ", cast[FutureBase](future).fromProc
+  # echo "set token ", cast[FutureBase](future).fromProc
   future.token = token
 
 
 proc cancellable*[T](future: Future[T]): Future[T] =
   ## var future = cancellable a() # if you dont want newCancellationToken and setToken() 
-  ## future.cancel() 
+  ## future.cancel()
   var token = newCancellationToken()
   future.setToken(token)
   return future
@@ -552,16 +583,18 @@ template getToken*[T](future: Future[T]): ref CancellationToken =
   future.token
 
 proc cancel*(token: ref CancellationToken) =
-  echo "token cancel"
+  # echo "token cancel"
+  # TODO: if already cancelled? `and` special: maybe finished arg
   token.cancelled = true
+  for childToken in token.children:
+    childToken.cancel()
   
 proc cancel*[T](future: Future[T]) =
   assert not future.token.isNil, "can't cancel without token"
   future.token.cancel()
 
-
 proc cancelAndWait*[T](future: Future[T]): Future[void] =
-  echo "cancel"
+  # echo "cancel"
   future.cancel()
   
   result = newFuture[void]("cancelAndWait")
@@ -573,4 +606,5 @@ proc cancelAndWait*[T](future: Future[T]): Future[void] =
   # complete as a callback
   future.addCallback proc {.closure, gcsafe.} =
     if future.finished:
+      echo "cancelled"
       res.complete()

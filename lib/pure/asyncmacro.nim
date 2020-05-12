@@ -210,6 +210,12 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
   var iteratorNameSym = genSym(nskIterator, $prcName & "Iter")
   var procBody = prc.body.processBody(retFutureSym, subtypeIsVoid,
                                     futureVarIdents)
+
+  var cancelCheck = quote:
+    if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil and `retFutureSym`.getToken().cancelled:
+      echo "  cancelling with raise " & $`prcName`
+      raise newException(Cancel, $`prcName` & " is a cancelled future")
+                                  
   # don't do anything with forward bodies (empty)
   if procBody.kind != nnkEmpty:
     procBody.add(createFutureVarCompletions(futureVarIdents, nil))
@@ -233,6 +239,11 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       # -> complete(retFuture)
       procBody.add(newCall(newIdentNode("complete"), retFutureSym))
 
+    let name = newLit($prcName)
+    procBody.insert(0, quote do: echo "  -> " & `name`) # enter
+    
+    procBody.insert(1, cancelCheck)
+
     var closureIterator = newProc(iteratorNameSym, [parseExpr("owned(FutureBase)")],
                                   procBody, nnkIteratorDef)
     closureIterator.pragma = newNimNode(nnkPragma, lineInfoFrom = prc.body)
@@ -240,7 +251,7 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
 
     if prcName == "realPreloadFunction":
       echo closureIterator.repr
-  
+  # 
     # If proc has an explicit gcsafe pragma, we add it to iterator as well.
     if prc.pragma.findChild(it.kind in {nnkSym, nnkIdent} and $it ==
         "gcsafe") != nil:
@@ -280,13 +291,23 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil:
         f.setToken(`retFutureSym`.getToken())
       yield internalTmpFuture
-      if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil and `retFutureSym`.getToken().cancelled:
-        raise newException(Cancel, $`prcName` & " is a cancelled future")
+      echo "  ~> " & $`prcName` # after yield
+      `cancelCheck`
       (cast[type(f)](internalTmpFuture)).read()
     
     template earlyReturn: untyped =
       `retFutureSym`.complete()
       return
+
+    template earlyReturn[T](res: T): untyped =
+      `retFutureSym`.complete(res)
+      return
+
+    template resultType: untyped =
+      `subRetType`
+
+    template getToken: ref CancellationToken =
+      `retFutureSym`.getToken()
   
   if procBody.kind != nnkEmpty:
     result.body = quote:
