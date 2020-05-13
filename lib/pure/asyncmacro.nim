@@ -240,9 +240,16 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       procBody.add(newCall(newIdentNode("complete"), retFutureSym))
 
     let name = newLit($prcName)
-    procBody.insert(0, quote do: echo "  -> " & `name`) # enter
-    
-    procBody.insert(1, cancelCheck)
+    procBody.insert(0, quote do: echo "  --> " & `name`) # enter
+    var debugEvent = quote:
+      if `retFutureSym`.getToken() != nil:
+        # var token = `retFutureSym`.getToken()
+        `retFutureSym`.getToken().events.add(DebugEvent(kind: Enter, fromProc: `retFutureSym`.fromProc))
+      else:
+        echo "nil"
+    procBody.insert(1, debugEvent)
+
+    procBody.insert(2, cancelCheck)
 
     var closureIterator = newProc(iteratorNameSym, [parseExpr("owned(FutureBase)")],
                                   procBody, nnkIteratorDef)
@@ -289,9 +296,18 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
     template await[T](f: Future[T]): auto =
       var internalTmpFuture: FutureBase = f
       if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil:
+        echo "set token"
+        echo `retFutureSym`.fromProc
         f.setToken(`retFutureSym`.getToken())
+      # echo "  [~~ " & $`prcName`
+      if `retFutureSym`.getToken() != nil:
+        # var token = `retFutureSym`.getToken()
+        `retFutureSym`.getToken().events.add(DebugEvent(kind: LeaveYield, fromProc: `retFutureSym`.fromProc))
       yield internalTmpFuture
-      echo "  ~> " & $`prcName` # after yield
+      # echo "  ~~] " & $`prcName` # after yield
+      if `retFutureSym`.getToken() != nil:
+        # var token = `retFutureSym`.getToken()
+        `retFutureSym`.getToken().events.add(DebugEvent(kind: AfterYield, fromProc: `retFutureSym`.fromProc))
       `cancelCheck`
       (cast[type(f)](internalTmpFuture)).read()
     

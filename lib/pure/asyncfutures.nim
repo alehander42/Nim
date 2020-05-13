@@ -17,6 +17,7 @@ type
     function: CallbackFunc
     next: owned(ref CallbackList)
 
+  
   FutureBase* = ref object of RootObj  ## Untyped future.
     callbacks: CallbackList
 
@@ -45,7 +46,13 @@ type
   CancellationToken* = object
     cancelled*: bool
     children*: seq[ref CancellationToken]
+    events*:   seq[DebugEvent]
   
+  DebugEventKind* = enum Enter, AfterYield, LeaveYield, Complete
+
+  DebugEvent* = object
+    kind*:      DebugEventKind
+    fromProc*:  string
 
 when not defined(release):
   var currentID = 0
@@ -223,7 +230,10 @@ proc complete*[T](future: Future[T], val: T) =
   assert(future.error == nil)
   future.value = val
   future.finished = true
-  echo "  <- " & future.fromProc # complete
+  # echo "  <-- " & future.fromProc # complete
+  
+  if future.token != nil:
+    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -233,7 +243,9 @@ proc complete*(future: Future[void]) =
   checkFinished(future)
   assert(future.error == nil)
   future.finished = true
-  echo "  <- " & future.fromProc # complete
+  # echo "  <-- " & future.fromProc # complete
+  if future.token != nil:
+    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -243,7 +255,6 @@ proc complete*[T](future: FutureVar[T]) =
   checkFinished(fut)
   assert(fut.error == nil)
   fut.finished = true
-  echo "  <- " & future.fromProc # complete
   fut.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(Future[T](future))
 
@@ -580,6 +591,7 @@ proc cancellable*[T](future: Future[T]): Future[T] =
   return future
 
 template getToken*[T](future: Future[T]): ref CancellationToken =
+  # echo future.fromProc
   future.token
 
 proc cancel*(token: ref CancellationToken) =
