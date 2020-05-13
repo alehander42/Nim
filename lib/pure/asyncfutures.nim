@@ -230,10 +230,11 @@ proc complete*[T](future: Future[T], val: T) =
   assert(future.error == nil)
   future.value = val
   future.finished = true
+
   # echo "  <-- " & future.fromProc # complete
+  # if future.token != nil:
+    # future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   
-  if future.token != nil:
-    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -243,9 +244,11 @@ proc complete*(future: Future[void]) =
   checkFinished(future)
   assert(future.error == nil)
   future.finished = true
+  
   # echo "  <-- " & future.fromProc # complete
-  if future.token != nil:
-    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
+  # if future.token != nil:
+    # future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
+  
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -583,12 +586,7 @@ proc setToken*[T](future: Future[T], token: ref CancellationToken) =
   future.token = token
 
 
-proc cancellable*[T](future: Future[T]): Future[T] =
-  ## var future = cancellable a() # if you dont want newCancellationToken and setToken() 
-  ## future.cancel()
-  var token = newCancellationToken()
-  future.setToken(token)
-  return future
+
 
 template getToken*[T](future: Future[T]): ref CancellationToken =
   # echo future.fromProc
@@ -617,6 +615,20 @@ proc cancelAndWait*[T](future: Future[T]): Future[void] =
   
   # complete as a callback
   future.addCallback proc {.closure, gcsafe.} =
+    echo "cancel callback"
     if future.finished:
-      echo "cancelled"
+      # echo "cancelled"
       res.complete()
+
+var asyncToken*: ref CancellationToken
+
+template withToken*(a: untyped, token: untyped): untyped =
+  ## withToken(a(), token)
+  asyncToken = token
+  a
+
+template cancellable*[T](future: untyped): Future[T] =
+  ## var future = cancellable a() # if you dont want newCancellationToken and setToken() 
+  ## future.cancel()
+  var token = newCancellationToken()
+  withToken(future, token)

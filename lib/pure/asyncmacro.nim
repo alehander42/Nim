@@ -201,6 +201,14 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
           subRetType),
       newLit(prcName)))) # Get type from return type of this proc
 
+  var token = quote:
+    if not asyncToken.isNil:
+      # echo "new future token " & `retFutureSym`.fromProc
+      `retFutureSym`.setToken(asyncToken)
+      asyncToken = nil
+  
+  outerProcBody.add(token)
+  
   # -> iterator nameIter(): FutureBase {.closure.} =
   # ->   {.push warning[resultshadowed]: off.}
   # ->   var result: T
@@ -212,8 +220,10 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
                                     futureVarIdents)
 
   var cancelCheck = quote:
+    # echo "wake up(enter or after yield) " & $`prcName`
     if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil and `retFutureSym`.getToken().cancelled:
       echo "  cancelling with raise " & $`prcName`
+      writeStackTrace()
       raise newException(Cancel, $`prcName` & " is a cancelled future")
                                   
   # don't do anything with forward bodies (empty)
@@ -240,16 +250,14 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       procBody.add(newCall(newIdentNode("complete"), retFutureSym))
 
     let name = newLit($prcName)
-    procBody.insert(0, quote do: echo "  --> " & `name`) # enter
+    # procBody.insert(0, quote do: echo "  --> " & `name`) # enter
     var debugEvent = quote:
       if `retFutureSym`.getToken() != nil:
         # var token = `retFutureSym`.getToken()
         `retFutureSym`.getToken().events.add(DebugEvent(kind: Enter, fromProc: `retFutureSym`.fromProc))
-      else:
-        echo "nil"
-    procBody.insert(1, debugEvent)
+    procBody.insert(0, debugEvent)
 
-    procBody.insert(2, cancelCheck)
+    procBody.insert(1, cancelCheck)
 
     var closureIterator = newProc(iteratorNameSym, [parseExpr("owned(FutureBase)")],
                                   procBody, nnkIteratorDef)
@@ -294,20 +302,34 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
         error "await expects Future[T], got " & $typeof(f)
 
     template await[T](f: Future[T]): auto =
-      var internalTmpFuture: FutureBase = f
-      if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil:
-        echo "set token"
-        echo `retFutureSym`.fromProc
-        f.setToken(`retFutureSym`.getToken())
+      
+      
+      # echo `retFutureSym`.fromProc, " --> ", internalTmpFuture.fromProc
+      let r = `retFutureSym`
+      var token: ref CancellationToken = if r.isNil: nil else: r.getToken()
+      # if not r.isNil and not token.isNil:
+      #   cast[Future[T]](internalTmpFuture).setToken(token)
+        #  asyncToken = token
+        # TODO ugh we have to wait before await : take untyped
+
+      var internalTmpFuture: FutureBase = if token.isNil: f else: withToken(f, token)
+      
+      ### leave yield
       # echo "  [~~ " & $`prcName`
-      if `retFutureSym`.getToken() != nil:
+      if token != nil:
         # var token = `retFutureSym`.getToken()
-        `retFutureSym`.getToken().events.add(DebugEvent(kind: LeaveYield, fromProc: `retFutureSym`.fromProc))
+       token.events.add(DebugEvent(kind: LeaveYield, fromProc: r.fromProc))
+      ### end leave yield logging
+      
       yield internalTmpFuture
+      
+      ### after yield
       # echo "  ~~] " & $`prcName` # after yield
-      if `retFutureSym`.getToken() != nil:
+      if token != nil:
         # var token = `retFutureSym`.getToken()
-        `retFutureSym`.getToken().events.add(DebugEvent(kind: AfterYield, fromProc: `retFutureSym`.fromProc))
+        token.events.add(DebugEvent(kind: AfterYield, fromProc: `retFutureSym`.fromProc))
+      ### end after yield logging
+      
       `cancelCheck`
       (cast[type(f)](internalTmpFuture)).read()
     
