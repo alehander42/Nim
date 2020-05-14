@@ -1827,9 +1827,20 @@ template injectG() {.dirty.} =
 when not defined(nimHasSinkInference):
   {.pragma: nosinks.}
 
+
+func hash*(key: AbsoluteFile): Hash =
+  hash(key.string)
+
+var expandedMap = initTable[AbsoluteFile, string]() # TODO Context
+
+proc startExpanded(context: PPassContext) =
+  var m = BModule(context)
+  expandedMap[m.filename] = ""
+
 proc myOpen(graph: ModuleGraph; module: PSym): PPassContext {.nosinks.} =
   injectG()
   result = newModule(g, module, graph.config)
+  startExpanded(result)
   if optGenIndex in graph.config.globalOptions and g.generatedHeader == nil:
     let f = if graph.config.headerFile.len > 0: AbsoluteFile graph.config.headerFile
             else: graph.config.projectFull
@@ -1897,8 +1908,21 @@ proc addHcrInitGuards(p: BProc, n: PNode, inInitGuard: var bool) =
 
     genStmts(p, n)
 
+
+
+
+proc generateExpanded(context: PPassContext, node: PNode) =
+  var expanded = renderer.renderTree(node)
+  var m = BModule(context)
+  var file = m.filename
+  expandedMap[file].add(expanded & "\n")
+  var cFile = completeCfilePath(m.config, file)
+  var expandedFile = changeFileExt(cFile, ".expanded.nim")
+  writeFile(expandedFile, expanded)
+
 proc myProcess(b: PPassContext, n: PNode): PNode =
   result = n
+  generateExpanded(b, n)
   if b == nil: return
   var m = BModule(b)
   if passes.skipCodegen(m.config, n) or
@@ -2012,10 +2036,17 @@ proc updateCachedModule(m: BModule) =
     cf.flags = {CfileFlag.Cached}
     addFileToCompile(m.config, cf)
 
+proc saveExpanded(m: BModule) =
+  var file = m.filename
+  var cFile = completeCfilePath(m.config, file)
+  var expandedFile = changeFileExt(cFile, ".expanded.nim")
+  writeFile(expandedFile, expandedMap[file])
+
 proc myClose(graph: ModuleGraph; b: PPassContext, n: PNode): PNode =
   result = n
   if b == nil: return
   var m = BModule(b)
+  saveExpanded(m)
   if sfMainModule in m.module.flags:
     # phase ordering problem here: We need to announce this
     # dependency to 'nimTestErrorFlag' before system.c has been written to disk.

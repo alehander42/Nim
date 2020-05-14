@@ -503,6 +503,7 @@ proc addCodeForGenerics(c: PContext, n: PNode) =
       else:
         n.add prc.ast
   c.lastGenericIdx = c.generics.len
+  
 
 proc myOpen(graph: ModuleGraph; module: PSym): PPassContext {.nosinks.} =
   var c = newContext(graph, module)
@@ -524,6 +525,7 @@ proc myOpen(graph: ModuleGraph; module: PSym): PPassContext {.nosinks.} =
   pushProcCon(c, module)
   pushOwner(c, c.module)
   c.importTable = openScope(c)
+
   c.importTable.addSym(module) # a module knows itself
   if sfSystemModule in module.flags:
     graph.systemModule = module
