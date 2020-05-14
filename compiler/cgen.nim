@@ -1807,6 +1807,11 @@ template injectG() {.dirty.} =
 proc myOpen(graph: ModuleGraph; module: PSym): PPassContext =
   injectG()
   result = newModule(g, module, graph.config)
+  var expanded = renderTree(macroResult, config=graph.config)
+  let file = if graph.config.headerFile.len > 0: AbsoluteFile graph.config.headerFile
+            else: graph.config.projectFull
+  changeFileExt(completeCfilePath(graph.config, file), ".expanded.nim"))
+  
   if optGenIndex in graph.config.globalOptions and g.generatedHeader == nil:
     let f = if graph.config.headerFile.len > 0: AbsoluteFile graph.config.headerFile
             else: graph.config.projectFull

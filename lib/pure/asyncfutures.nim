@@ -29,7 +29,8 @@ type
     token: ref CancellationToken # tokens
     # children*: seq[FutureBase]
     when not defined(release):
-      stackTrace: seq[StackTraceEntry] ## For debugging purposes only.
+      stackTrace*: seq[StackTraceEntry] ## For debugging purposes only.
+      completionStackTrace: seq[StackTraceEntry]
       id: int
       fromProc*: string
 
@@ -47,6 +48,7 @@ type
     cancelled*: bool
     children*: seq[ref CancellationToken]
     events*:   seq[DebugEvent]
+    reason*:   string
   
   DebugEventKind* = enum Enter, AfterYield, LeaveYield, Complete
 
@@ -121,13 +123,14 @@ proc callSoon*(cbproc: proc ()) =
   else:
     callSoonProc(cbproc)
 
-template setupFutureBase(fromProc: string) =
+template setupFutureBase(fromProc: string, info: tuple[filename: string, line: int, column: int]) =
   new(result)
   result.finished = false
   when not defined(release):
     result.stackTrace = getStackTraceEntries()
     result.id = currentID
-    result.fromProc = fromProc
+    let i = info
+    result.fromProc = fromProc & "[" & $result.stackTrace[^1] & "]" &   " [" & i.filename & ":" & $i.line & ":" & $i.column & "]"
     currentID.inc()
 
 proc newFuture*[T](fromProc: string = "unspecified"): owned(Future[T]) =
@@ -135,7 +138,7 @@ proc newFuture*[T](fromProc: string = "unspecified"): owned(Future[T]) =
   ##
   ## Specifying ``fromProc``, which is a string specifying the name of the proc
   ## that this future belongs to, is a good habit as it helps with debugging.
-  setupFutureBase(fromProc)
+  setupFutureBase(fromProc, instantiationInfo(0))
   when isFutureLoggingEnabled: logFutureStart(result)
 
 proc newFutureVar*[T](fromProc = "unspecified"): owned(FutureVar[T]) =
@@ -168,6 +171,8 @@ proc checkFinished[T](future: Future[T]) =
       when T is string:
         msg.add("\n  Contents (string): ")
         msg.add("\n" & indent($future.value, 4))
+      msg.add("\n  Stack trace to moment of first completion:")
+      msg.add("\n" & indent(($future.completionStackTrace).strip(), 4))
       msg.add("\n  Stack trace to moment of secondary completion:")
       msg.add("\n" & indent(getStackTrace().strip(), 4))
       var err = newException(FutureError, msg)
@@ -228,12 +233,13 @@ proc complete*[T](future: Future[T], val: T) =
   #assert(not future.finished, "Future already finished, cannot finish twice.")
   checkFinished(future)
   assert(future.error == nil)
+  future.completionStackTrace = getStackTraceEntries()
   future.value = val
   future.finished = true
 
-  # echo "  <-- " & future.fromProc # complete
-  # if future.token != nil:
-    # future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
+  echo "  <-- " & future.fromProc # complete
+  if future.token != nil:
+    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
@@ -243,11 +249,12 @@ proc complete*(future: Future[void]) =
   #assert(not future.finished, "Future already finished, cannot finish twice.")
   checkFinished(future)
   assert(future.error == nil)
+  future.completionStackTrace = getStackTraceEntries()
   future.finished = true
   
-  # echo "  <-- " & future.fromProc # complete
-  # if future.token != nil:
-    # future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
+  echo "  <-- " & future.fromProc # complete
+  if future.token != nil:
+    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
@@ -277,10 +284,16 @@ proc fail*[T](future: Future[T], error: ref Exception) =
   ## Completes ``future`` with ``error``.
   #assert(not future.finished, "Future already finished, cannot finish twice.")
   checkFinished(future)
+  future.completionStackTrace = getStackTraceEntries()
   future.finished = true
   future.error = error
   future.errorStackTrace =
     if getStackTrace(error) == "": getStackTrace() else: getStackTrace(error)
+  
+  echo "  <-- " & future.fromProc # complete
+  if future.token != nil:
+    future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
+
   future.callbacks.call()
   when isFutureLoggingEnabled: logFutureFinish(future)
 
@@ -582,7 +595,7 @@ proc newCancellationToken*(tokens: seq[ref CancellationToken] = @[]): ref Cancel
   result[] = CancellationToken(cancelled: false, children: tokens)
 
 proc setToken*[T](future: Future[T], token: ref CancellationToken) =
-  # echo "set token ", cast[FutureBase](future).fromProc
+  echo "set token ", cast[FutureBase](future).fromProc
   future.token = token
 
 
@@ -592,20 +605,23 @@ template getToken*[T](future: Future[T]): ref CancellationToken =
   # echo future.fromProc
   future.token
 
-proc cancel*(token: ref CancellationToken) =
+proc cancel*(token: ref CancellationToken, reason: string = "") =
   # echo "token cancel"
   # TODO: if already cancelled? `and` special: maybe finished arg
+  if token.cancelled:
+    echo "WARN : cancelled already " & reason
   token.cancelled = true
+  token.reason = reason
   for childToken in token.children:
-    childToken.cancel()
+    childToken.cancel(reason=reason)
   
-proc cancel*[T](future: Future[T]) =
+proc cancel*[T](future: Future[T], reason: string = "") =
   assert not future.token.isNil, "can't cancel without token"
-  future.token.cancel()
+  future.token.cancel(reason=reason)
 
-proc cancelAndWait*[T](future: Future[T]): Future[void] =
+proc cancelAndWait*[T](future: Future[T], reason: string = ""): Future[void] =
   # echo "cancel"
-  future.cancel()
+  future.cancel(reason=reason)
   
   result = newFuture[void]("cancelAndWait")
   
