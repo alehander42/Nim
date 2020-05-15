@@ -134,7 +134,7 @@ template setupFutureBase(fromProc: string, info: tuple[filename: string, line: i
     result.stackTrace = getStackTraceEntries()
     result.id = currentID
     let i = info
-    result.fromProc = fromProc & "[" & $result.stackTrace[^1] & "]" &   " [" & i.filename & ":" & $i.line & ":" & $i.column & "]"
+    result.fromProc = fromProc & "[" & $result.stackTrace[^2] & "]" &   " [" & i.filename & ":" & $i.line & ":" & $i.column & "]"
     currentID.inc()
 
 proc newFuture*[T](fromProc: string = "unspecified"): owned(Future[T]) =
@@ -602,7 +602,7 @@ proc newCancellationToken*(tokens: seq[ref CancellationToken] = @[]): ref Cancel
   result[] = CancellationToken(cancelled: false, children: tokens)
 
 proc setToken*[T](future: Future[T], token: ref CancellationToken) =
-  echo "set token ", cast[FutureBase](future).fromProc
+  # echo "set token ", cast[FutureBase](future).fromProc
   future.token = token
 
 
