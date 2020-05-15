@@ -12,7 +12,7 @@ import os, tables, strutils, times, heapqueue, options, deques, cstrutils
 
 # TODO: This shouldn't need to be included, but should ideally be exported.
 
-const ASYNC_DEBUG* = true
+const ASYNC_DEBUG* = false
 
 type
   CallbackFunc = proc () {.closure, gcsafe.}
