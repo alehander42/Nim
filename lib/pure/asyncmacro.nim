@@ -250,14 +250,18 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       procBody.add(newCall(newIdentNode("complete"), retFutureSym))
 
     let name = newLit($prcName)
-    procBody.insert(0, quote do: echo "  --> " & `name`) # enter
+    var index = 0
+    when ASYNC_DEBUG:
+      procBody.insert(0, quote do: echo "  --> " & `name`) # enter
+      index = 1
     var debugEvent = quote:
       if `retFutureSym`.getToken() != nil:
         # var token = `retFutureSym`.getToken()
         `retFutureSym`.getToken().events.add(DebugEvent(kind: Enter, fromProc: `retFutureSym`.fromProc))
-    procBody.insert(1, debugEvent)
+    
+    procBody.insert(index, debugEvent)
 
-    procBody.insert(2, cancelCheck)
+    procBody.insert(index + 1, cancelCheck)
 
     var closureIterator = newProc(iteratorNameSym, [parseExpr("owned(FutureBase)")],
                                   procBody, nnkIteratorDef)
@@ -316,7 +320,8 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       # if not token.isNil:
         # echo `retFutureSym`.fromProc, " --> ", internalTmpFuture.fromProc
       ### leave yield
-      echo "  [~~ " & $`prcName`
+      when ASYNC_DEBUG:
+        echo "  [~~ " & $`prcName`
       if token != nil:
         # var token = `retFutureSym`.getToken()
        token.events.add(DebugEvent(kind: LeaveYield, fromProc: r.fromProc))
@@ -325,7 +330,8 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       yield internalTmpFuture
       
       ### after yield
-      echo "  ~~] " & $`prcName` # after yield
+      when ASYNC_DEBUG:
+        echo "  ~~] " & $`prcName` # after yield
       if token != nil:
         # var token = `retFutureSym`.getToken()
         token.events.add(DebugEvent(kind: AfterYield, fromProc: `retFutureSym`.fromProc))

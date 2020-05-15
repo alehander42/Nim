@@ -9,7 +9,11 @@
 
 import os, tables, strutils, times, heapqueue, options, deques, cstrutils
 
+
 # TODO: This shouldn't need to be included, but should ideally be exported.
+
+const ASYNC_DEBUG* = true
+
 type
   CallbackFunc = proc () {.closure, gcsafe.}
 
@@ -237,7 +241,8 @@ proc complete*[T](future: Future[T], val: T) =
   future.value = val
   future.finished = true
 
-  echo "  <-- " & future.fromProc # complete
+  when ASYNC_DEBUG:
+    echo "  <-- " & future.fromProc # complete
   if future.token != nil:
     future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   
@@ -252,7 +257,8 @@ proc complete*(future: Future[void]) =
   future.completionStackTrace = getStackTraceEntries()
   future.finished = true
   
-  echo "  <-- " & future.fromProc # complete
+  when ASYNC_DEBUG:
+    echo "  <-- " & future.fromProc # complete
   if future.token != nil:
     future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
   
@@ -290,7 +296,8 @@ proc fail*[T](future: Future[T], error: ref Exception) =
   future.errorStackTrace =
     if getStackTrace(error) == "": getStackTrace() else: getStackTrace(error)
   
-  echo "  <-- " & future.fromProc # complete
+  when ASYNC_DEBUG:
+    echo "  <-- " & future.fromProc # complete
   if future.token != nil:
     future.token.events.add(DebugEvent(kind: Complete, fromProc: future.fromProc))
 
