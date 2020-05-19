@@ -31,6 +31,7 @@ type
     error*: ref Exception              ## Stored exception
     errorStackTrace*: string
     token: ref CancellationToken # tokens
+    tokenStackTrace*: seq[StackTraceEntry]
     # children*: seq[FutureBase]
     when not defined(release):
       stackTrace*: seq[StackTraceEntry] ## For debugging purposes only.
@@ -594,7 +595,7 @@ proc all*[T](futs: varargs[Future[T]]): auto =
     return retFuture
 
 
-# Inspired by discussions with zahary, chronos and .Net cancellation tokens API
+# Inspired by discussions with zahary, chronos and .Net cancellation tokens API:
 
 
 proc newCancellationToken*(tokens: seq[ref CancellationToken] = @[]): ref CancellationToken =
@@ -604,6 +605,7 @@ proc newCancellationToken*(tokens: seq[ref CancellationToken] = @[]): ref Cancel
 proc setToken*[T](future: Future[T], token: ref CancellationToken) =
   # echo "set token ", cast[FutureBase](future).fromProc
   future.token = token
+  future.tokenStackTrace = getStackTraceEntries()
 
 
 

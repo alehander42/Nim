@@ -222,7 +222,7 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
     # echo "wake up(enter or after yield) " & $`prcName`
     if not `retFutureSym`.isNil and not `retFutureSym`.getToken().isNil and `retFutureSym`.getToken().cancelled:
       echo "  cancelling with fail " & $`prcName` & " because " & `retFutureSym`.getToken().reason
-      echo `retFutureSym`.stackTrace
+      echo `retFutureSym`.tokenStackTrace
       # writeStackTrace()
       `retFutureSym`.fail(newException(Cancel, $`prcName` & " is a cancel: you should add except Cancel: for it or let it travel up to first future"))
       return                                  
