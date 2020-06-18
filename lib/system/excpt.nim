@@ -121,7 +121,12 @@ proc pushCurrentException(e: sink(ref Exception)) {.compilerRtl, inl.} =
   #showErrorMessage "A"
 
 proc popCurrentException {.compilerRtl, inl.} =
-  currException = currException.up
+  if currException.isNil:
+    # TODO is this bad ? or should we just leave it nil
+    # maybe it's not pushed when it should be? it seems sometimes closureIterSetupExc changes it
+    discard 
+  else:
+    currException = currException.up
   #showErrorMessage "B"
 
 proc popCurrentExceptionEx(id: uint) {.compilerRtl.} =
