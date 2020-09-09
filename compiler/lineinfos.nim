@@ -56,7 +56,7 @@ type
     warnLockLevel = "LockLevel", warnResultShadowed = "ResultShadowed",
     warnInconsistentSpacing = "Spacing",  warnCaseTransition = "CaseTransition",
     warnCycleCreated = "CycleCreated", warnObservableStores = "ObservableStores",
-    warnUser = "User", warnNilcheck = "Nilcheck"
+    warnUser = "User", warnNilcheck = "Nilcheck", warnStrictNotNil = "StrictNotNil"
 
     hintSuccess = "Success", hintSuccessX = "SuccessX", hintCC = "CC",
     hintLineTooLong = "LineTooLong", hintXDeclaredButNotUsed = "XDeclaredButNotUsed",
@@ -129,7 +129,7 @@ const
     warnCycleCreated: "$1",
     warnObservableStores: "observable stores to '$1'",
     warnUser: "$1",
-    warnNilCheck: "$1",
+    warnStrictNotNil: "$1",
     hintSuccess: "operation successful: $#",
     # keep in sync with `testament.isSuccess`
     hintSuccessX: "${loc} lines; ${sec}s; $mem; $build build; proj: $project; out: $output",
@@ -163,7 +163,38 @@ const
     hintUserRaw: "$1",
     hintExtendedContext: "$1",
     hintMsgOrigin: "$1",
+<<<<<<< HEAD
     hintDeclaredLoc: "$1",
+=======
+  ]
+
+const
+  WarningsToStr* = ["CannotOpenFile", "OctalEscape",
+    "XIsNeverRead", "XmightNotBeenInit",
+    "Deprecated", "ConfigDeprecated",
+    "SmallLshouldNotBeUsed", "UnknownMagic",
+    "RedefinitionOfLabel", "UnknownSubstitutionX",
+    "LanguageXNotSupported", "FieldXNotSupported",
+    "CommentXIgnored",
+    "TypelessParam", "UseBase", "WriteToForeignHeap",
+    "UnsafeCode", "UnusedImport", "InheritFromException",
+    "EachIdentIsTuple",
+    "UnsafeSetLen", "UnsafeDefault",
+    "ProveInit", "ProveField", "ProveIndex", "UnreachableElse", "UnreachableCode",
+    "IndexCheck", "GcUnsafe", "GcUnsafe2", "Uninit",
+    "GcMem", "Destructor", "LockLevel", "ResultShadowed",
+    "Spacing", "CaseTransition", "CycleCreated",
+    "ObservableStores", "User", "StrictNotNil"]
+
+  HintsToStr* = [
+    "Success", "SuccessX", "CC", "LineTooLong",
+    "XDeclaredButNotUsed",
+    "ConvToBaseNotNeeded", "ConvFromXtoItselfNotNeeded",
+    "ExprAlwaysX", "QuitCalled", "Processing", "CodeBegin", "CodeEnd", "Conf",
+    "Path", "CondTrue", "CondFalse", "Name", "Pattern", "Exec", "Link", "Dependency",
+    "Source", "Performance", "StackTrace", "GCStats", "GlobalVar", "ExpandMacro",
+    "User", "UserRaw", "ExtendedContext", "MsgOrigin",
+>>>>>>> Progress: some tests and fixes(work from the last several days)
   ]
 
 const
