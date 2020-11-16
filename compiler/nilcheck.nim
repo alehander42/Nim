@@ -141,8 +141,9 @@ type
     # symbolGraphs: Table[Symbol, ]
     symbolIndices: Table[Symbol, ExprIndex] ## index for each symbol
     expressions: SeqOfDistinct[ExprIndex, PNode] ## a sequence of pre-indexed expressions
-    dependants: SeqOfDistinct[ExprIndex, IntSet] ## expr indices for expressions which are compound and based on others
+    dependants: SeqOfDistinct[ExprIndex, IntSet] ## expr indices for expressions which are compound and based on other
     warningLocations: HashSet[TLineInfo] ## warning locations to check we don't warn twice for stuff like warnings in for loops
+    idgen: IdGenerator
     config: ConfigRef ## the config of the compiler
 
   ## a map that is containing the current nilability for usually a branch
@@ -1080,7 +1081,7 @@ proc checkIsNil(n, ctx, map; isElse: bool = false): Check =
   # let value2 = symbol(value)
   result.map.store(ctx, ctx.index(n[1]), if not isElse: Nil else: Safe, TArg, n.info, n)
 
-proc infix(l: PNode, r: PNode, magic: TMagic): PNode =
+proc infix(ctx: NilCheckerContext, l: PNode, r: PNode, magic: TMagic): PNode =
   var name = case magic:
     of mEqRef: "=="
     of mAnd: "and"
@@ -1088,30 +1089,30 @@ proc infix(l: PNode, r: PNode, magic: TMagic): PNode =
     else: ""
 
   var cache = newIdentCache()
-  var op = newSym(skVar, cache.getIdent(name), nil, r.info)
+  var op = newSym(skVar, cache.getIdent(name), nextId ctx.idgen, nil, r.info)
 
   op.magic = magic
   result = nkInfix.newTree(
     newSymNode(op, r.info),
     l,
     r)
-  result.typ = newType(tyBool, nil)
+  result.typ = newType(tyBool, nextId ctx.idgen, nil)
 
-proc prefixNot(node: PNode): PNode =
+proc prefixNot(ctx: NilCheckerContext, node: PNode): PNode =
   var cache = newIdentCache()
-  var op = newSym(skVar, cache.getIdent("not"), nil, node.info)
+  var op = newSym(skVar, cache.getIdent("not"), nextId ctx.idgen, nil, node.info)
 
   op.magic = mNot
   result = nkPrefix.newTree(
     newSymNode(op, node.info),
     node)
-  result.typ = newType(tyBool, nil)
+  result.typ = newType(tyBool, nextId ctx.idgen, nil)
 
-proc infixEq(l: PNode, r: PNode): PNode =
-  infix(l, r, mEqRef)
+proc infixEq(ctx: NilCheckerContext, l: PNode, r: PNode): PNode =
+  infix(ctx, l, r, mEqRef)
 
-proc infixOr(l: PNode, r: PNode): PNode =
-  infix(l, r, mOr)
+proc infixOr(ctx: NilCheckerContext, l: PNode, r: PNode): PNode =
+  infix(ctx, l, r, mOr)
 
 
 proc hasNilCheck(n: PNode): bool =
@@ -1172,11 +1173,11 @@ proc checkCase(n, ctx, map): Check =
       let code = child[^1]
       if baseHasNilCheck:
         let branchBase = child[0] # TODO a, b or a, b..c etc
-        let test = infixEq(base, branchBase)
+        let test = infixEq(ctx, base, branchBase)
         if a.isNil:
           a = test
         else:
-          a = infixOr(a, test)
+          a = infixOr(ctx, a, test)
         let conditionMap = checkCondition(test, ctx, map, false, false)
         branchMap = conditionMap
       else:
@@ -1192,7 +1193,7 @@ proc checkCase(n, ctx, map): Check =
       discard "TODO: maybe adapt to be similar to checkIf"
     of nkElse:
       if baseHasNilCheck:
-        let mapElse = checkCondition(prefixNot(a), ctx, map, false, false)
+        let mapElse = checkCondition(prefixNot(ctx, a), ctx, map, false, false)
         let newCheck = checkBranch(child[0], ctx, mapElse)
         result.map = ctx.union(result.map, newCheck.map)
         result.nilability = union(result.nilability, newCheck.nilability)
@@ -1528,12 +1529,12 @@ proc preVisit(ctx: NilCheckerContext, s: PSym, body: PNode, conf: ConfigRef) =
   #echo res
   # echo ctx.dependants
 
-proc checkNil*(s: PSym; body: PNode; conf: ConfigRef) =
+proc checkNil*(s: PSym; body: PNode; conf: ConfigRef, idgen: IdGenerator) =
   let line = s.ast.info.line
   let fileIndex = s.ast.info.fileIndex.int
   var filename = conf.m.fileInfos[fileIndex].fullPath.string
 
-  var context = NilCheckerContext(config: conf)
+  var context = NilCheckerContext(config: conf, idgen: idgen)
   context.preVisit(s, body, conf)
   var map = newNilMap(nil, context.symbolIndices.len)
   

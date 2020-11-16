@@ -1306,17 +1306,11 @@ proc trackProc*(c: PContext; s: PSym, body: PNode) =
     effects[ensuresEffects] = ensuresSpec
 
   var mutationInfo = MutationInfo()
-<<<<<<< HEAD
   if {strictFuncs, views} * c.features != {}:
     var goals: set[Goal] = {}
     if strictFuncs in c.features: goals.incl constParameters
     if views in c.features: goals.incl borrowChecking
     var partitions = computeGraphPartitions(s, body, g.config, goals)
-=======
-  var partitions: Partitions
-  if {strictFuncs, views} * c.features != {}:
-    partitions = computeGraphPartitions(s, body)
->>>>>>> Fix new data structures, bugs: make tests pass, disable some for now
     if not t.hasSideEffect and t.hasDangerousAssign:
       t.hasSideEffect = varpartitions.hasSideEffect(partitions, mutationInfo)
     if views in c.features:
@@ -1353,7 +1347,7 @@ proc trackProc*(c: PContext; s: PSym, body: PNode) =
                                                                                                                    
       when false: trackWrites(s, body)
   if strictNotNil in c.features and s.kind == skProc:
-    checkNil(s, body, g.config)
+    checkNil(s, body, g.config, c.idgen)
 
 proc trackStmt*(c: PContext; module: PSym; n: PNode, isTopLevel: bool) =
   if n.kind in {nkPragma, nkMacroDef, nkTemplateDef, nkProcDef, nkFuncDef,
