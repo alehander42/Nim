@@ -54,6 +54,7 @@ type
     children*: seq[ref CancellationToken]
     events*:   seq[DebugEvent]
     reason*:   string
+    jobId*:    string
   
   DebugEventKind* = enum Enter, AfterYield, LeaveYield, Complete
 
@@ -646,10 +647,15 @@ proc cancelAndWait*[T](future: Future[T], reason: string = ""): Future[void] =
       res.complete()
 
 var asyncToken*: ref CancellationToken
+var asyncJobToken*: ref CancellationToken
 
 template withToken*(a: untyped, token: untyped): untyped =
   ## withToken(a(), token)
   asyncToken = token
+  asyncJobToken = asyncToken
+  #if not token.isNil:
+  #  echo "set asyncToken ", token.jobId
+
   a
 
 template cancellable*[T](future: untyped): Future[T] =

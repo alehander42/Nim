@@ -202,9 +202,10 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
 
   var token = quote:
     if not asyncToken.isNil:
-      # echo "new future token " & `retFutureSym`.fromProc
       `retFutureSym`.setToken(asyncToken)
+      #echo "making token nil ", `retFutureSym`.fromProc
       asyncToken = nil
+
   
   outerProcBody.add(token)
   
@@ -257,7 +258,9 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
     var debugEvent = quote:
       if `retFutureSym`.getToken() != nil:
         # var token = `retFutureSym`.getToken()
+        #echo `retFutureSym`.fromProc, " ", "token ", `retFutureSym`.getToken().jobId 
         `retFutureSym`.getToken().events.add(DebugEvent(kind: Enter, fromProc: `retFutureSym`.fromProc))
+        asyncJobToken = `retFutureSym`.getToken()
     
     procBody.insert(index, debugEvent)
 
@@ -268,8 +271,8 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
     closureIterator.pragma = newNimNode(nnkPragma, lineInfoFrom = prc.body)
     closureIterator.addPragma(newIdentNode("closure"))
 
-    if prcName == "realPreloadFunction":
-      echo closureIterator.repr
+    #if prcName == "realPreloadFunction":
+    #  echo closureIterator.repr
   # 
     # If proc has an explicit gcsafe pragma, we add it to iterator as well.
     if prc.pragma.findChild(it.kind in {nnkSym, nnkIdent} and $it ==
@@ -325,6 +328,7 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
       if token != nil:
         # var token = `retFutureSym`.getToken()
        token.events.add(DebugEvent(kind: LeaveYield, fromProc: r.fromProc))
+       asyncJobToken = nil
       ### end leave yield logging
       
       yield internalTmpFuture
@@ -334,7 +338,10 @@ proc asyncSingleProc(prc: NimNode): NimNode {.compileTime.} =
         echo "  ~~] " & $`prcName` # after yield
       if token != nil:
         # var token = `retFutureSym`.getToken()
+        
         token.events.add(DebugEvent(kind: AfterYield, fromProc: `retFutureSym`.fromProc))
+        asyncJobToken = token
+        #echo "after yield ", `retFutureSym`.fromProc, " ", token.jobId, " ", asyncJobToken.isNil
       ### end after yield logging
       
       `cancelCheck`
